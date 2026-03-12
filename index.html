@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인턴 발표 평가 시스템</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --blue-50:#EFF6FF;--blue-100:#DBEAFE;--blue-200:#BFDBFE;--blue-300:#93C5FD;
+            --blue-400:#60A5FA;--blue-500:#3B82F6;--blue-600:#2563EB;--blue-700:#1D4ED8;
+            --blue-800:#1E40AF;--blue-900:#1E3A8A;
+            --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-300:#D1D5DB;
+            --gray-400:#9CA3AF;--gray-500:#6B7280;--gray-600:#4B5563;--gray-700:#374151;
+            --gray-800:#1F2937;--gray-900:#111827;
+            --green:#10B981;--green-bg:#D1FAE5;--yellow:#F59E0B;--yellow-bg:#FEF3C7;
+            --red:#EF4444;--red-bg:#FEE2E2;
+        }
+        body{font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--gray-50);color:var(--gray-800);line-height:1.6;min-height:100vh}
+
+        /* ===== NAV ===== */
+        .nav{background:white;border-bottom:1px solid var(--gray-200);padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+        .nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px}
+        .nav-logo{font-size:17px;font-weight:700;color:var(--blue-600);display:flex;align-items:center;gap:8px}
+        .nav-tabs{display:flex;gap:4px}
+        .nav-tab{padding:8px 18px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--gray-500);cursor:pointer;border-radius:8px;transition:.2s}
+        .nav-tab:hover{background:var(--blue-50);color:var(--blue-600)}
+        .nav-tab.active{background:var(--blue-600);color:white}
+
+        .page{display:none}.page.active{display:block}
+
+        /* ===== SURVEY ===== */
+        .survey-wrap{max-width:700px;margin:0 auto;padding:28px 16px 80px}
+        .survey-header{background:linear-gradient(135deg,var(--blue-600),var(--blue-800));border-radius:16px;padding:36px 32px;color:white;margin-bottom:20px;box-shadow:0 8px 24px rgba(37,99,235,.25)}
+        .survey-header h1{font-size:24px;font-weight:700;margin-bottom:10px}
+        .survey-header p{font-size:14px;opacity:.92;line-height:1.7}
+        .survey-header .badge-bar{margin-top:16px;padding:14px 16px;background:rgba(255,255,255,.14);border-radius:10px;font-size:12px;backdrop-filter:blur(8px)}
+
+        .card{background:white;border-radius:14px;padding:28px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--gray-100);transition:.15s}
+        .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+        .card-title{font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:2px;display:flex;align-items:center;gap:8px}
+        .card-sub{font-size:12px;color:var(--gray-400);margin-bottom:20px}
+        .weight-tag{display:inline-block;background:var(--blue-50);color:var(--blue-600);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;margin-left:6px}
+
+        /* form fields */
+        .fg{margin-bottom:20px}.fg:last-child{margin-bottom:0}
+        .fl{display:block;font-size:13px;font-weight:500;color:var(--gray-700);margin-bottom:6px}
+        .fl .req{color:var(--red);margin-left:2px}
+        .fi{width:100%;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-family:inherit;font-size:13px;color:var(--gray-800);transition:.2s;background:white}
+        .fi:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+        .fi::placeholder{color:var(--gray-400)}
+        textarea.fi{resize:vertical;min-height:90px}
+
+        /* rating */
+        .rq{margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--gray-100)}
+        .rq:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+        .rq-text{font-size:13px;font-weight:500;color:var(--gray-700);margin-bottom:12px}
+        .rq-text .req{color:var(--red)}
+        .rs{display:flex;align-items:center;gap:0;justify-content:space-between}
+        .rs-label{font-size:11px;color:var(--gray-400);flex-shrink:0;min-width:55px}
+        .rs-label:last-child{text-align:right}
+        .rs-opts{display:flex;gap:6px;flex:1;justify-content:center}
+        .ro{position:relative}
+        .ro input{position:absolute;opacity:0;cursor:pointer}
+        .ro label{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;border:2px solid var(--gray-200);font-size:14px;font-weight:600;color:var(--gray-400);cursor:pointer;transition:.2s;background:white}
+        .ro label:hover{border-color:var(--blue-400);color:var(--blue-600);background:var(--blue-50);transform:scale(1.06)}
+        .ro input:checked+label{background:var(--blue-600);border-color:var(--blue-600);color:white;box-shadow:0 2px 8px rgba(37,99,235,.35);transform:scale(1.06)}
+        .scale10 .rs-opts{gap:3px}
+        .scale10 .ro label{width:36px;height:36px;font-size:12px}
+
+        /* radio group */
+        .rg{display:flex;flex-direction:column;gap:7px}
+        .ri{position:relative}
+        .ri input{position:absolute;opacity:0}
+        .ri label{display:block;padding:12px 18px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:13px;color:var(--gray-600);cursor:pointer;transition:.2s}
+        .ri label:hover{border-color:var(--blue-400);background:var(--blue-50)}
+        .ri input:checked+label{border-color:var(--blue-600);background:var(--blue-50);color:var(--blue-700);font-weight:600}
+
+        .btn-submit{display:block;margin:24px auto 0;padding:14px 56px;background:var(--blue-600);color:white;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:.2s;box-shadow:0 4px 14px rgba(37,99,235,.3)}
+        .btn-submit:hover{background:var(--blue-700);transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,99,235,.35)}
+
+        /* validation */
+        .verr{color:var(--red);font-size:11px;margin-top:5px;display:none}
+        .has-error .verr{display:block}
+        .has-error .ro label{border-color:#FECACA}
+        .has-error .fi{border-color:var(--red)}
+
+        /* ===== SUCCESS MODAL ===== */
+        .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+        .overlay.show{display:flex}
+        .modal{background:white;border-radius:20px;padding:44px;text-align:center;max-width:400px;width:90%;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:pop .25s ease}
+        @keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+        .modal .chk{width:64px;height:64px;background:var(--green-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px}
+        .modal h2{font-size:20px;margin-bottom:10px}
+        .modal p{font-size:13px;color:var(--gray-500);margin-bottom:20px}
+        .modal button{padding:10px 32px;background:var(--blue-600);color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
+
+        /* ===== DASHBOARD ===== */
+        .dash-wrap{max-width:1200px;margin:0 auto;padding:28px 20px 80px}
+        .dash-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+        .dash-head h2{font-size:22px;font-weight:700;color:var(--gray-900)}
+        .dash-actions{display:flex;gap:8px;flex-wrap:wrap}
+        .btn{padding:9px 18px;border:none;border-radius:9px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:5px}
+        .btn-blue{background:var(--blue-600);color:white}.btn-blue:hover{background:var(--blue-700)}
+        .btn-green{background:var(--green);color:white}.btn-green:hover{background:#059669}
+        .btn-out{background:white;color:var(--gray-600);border:1.5px solid var(--gray-200)}.btn-out:hover{background:var(--gray-50)}
+        .btn-red{background:var(--red);color:white}.btn-red:hover{background:#DC2626}
+
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+        .stat{background:white;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--gray-100)}
+        .stat .si{font-size:24px;margin-bottom:8px}
+        .stat .sv{font-size:28px;font-weight:700;color:var(--gray-900)}
+        .stat .sl{font-size:12px;color:var(--gray-500);margin-top:2px}
+
+        .filter-bar{background:white;border-radius:12px;padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+        .filter-bar label{font-size:12px;font-weight:500;color:var(--gray-600)}
+        .filter-bar select,.filter-bar input{padding:7px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-family:inherit;font-size:12px}
+
+        .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;margin-bottom:24px}
+        .chart-card{background:white;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--gray-100)}
+        .chart-card h3{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--gray-700)}
+        .chart-box{position:relative;height:280px}
+
+        .tbl-card{background:white;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--gray-100);overflow-x:auto}
+        .tbl-card h3{font-size:14px;font-weight:600;margin-bottom:16px}
+        table.rt{width:100%;border-collapse:collapse;font-size:12px}
+        .rt th{background:var(--gray-50);padding:10px 14px;text-align:left;font-weight:600;color:var(--gray-600);border-bottom:2px solid var(--gray-200);white-space:nowrap}
+        .rt td{padding:10px 14px;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
+        .rt tr:hover td{background:var(--blue-50)}
+        .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-weight:600;font-size:11px}
+        .b-hi{background:var(--green-bg);color:#065F46}.b-md{background:var(--yellow-bg);color:#92400E}.b-lo{background:var(--red-bg);color:#991B1B}
+
+        /* report cards */
+        .rpt{background:white;border-radius:14px;padding:28px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--gray-100)}
+        .rpt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+        .rpt-name{font-size:20px;font-weight:700}
+        .rpt-meta{font-size:12px;color:var(--gray-500)}
+        .rpt-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+        .rpt-si{background:var(--gray-50);padding:14px;border-radius:10px;text-align:center}
+        .rpt-si .cat{font-size:11px;color:var(--gray-500);margin-bottom:2px}
+        .rpt-si .val{font-size:22px;font-weight:700;color:var(--blue-600)}
+        .rpt-si .mx{font-size:11px;color:var(--gray-400)}
+        .pb{margin-bottom:10px}.pb-l{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+        .pb-t{height:7px;background:var(--gray-100);border-radius:4px;overflow:hidden}
+        .pb-f{height:100%;border-radius:4px;transition:width .5s}
+        .fb-item{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:5px}
+
+        /* empty */
+        .empty{text-align:center;padding:50px 20px;color:var(--gray-400)}
+        .empty h3{font-size:16px;color:var(--gray-600);margin-bottom:6px}
+
+        /* ===== QR PAGE ===== */
+        .qr-wrap{max-width:560px;margin:0 auto;padding:40px 20px;text-align:center}
+        .qr-card{background:white;border-radius:16px;padding:40px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+        .qr-card h2{font-size:20px;margin-bottom:6px;color:var(--gray-900)}
+        .qr-card>p{color:var(--gray-500);font-size:13px;margin-bottom:28px}
+        .qr-img-wrap{background:white;display:inline-block;padding:16px;border-radius:12px;border:2px solid var(--blue-100);margin-bottom:20px}
+        .qr-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+        .qr-url-bar{display:flex;align-items:center;gap:6px;background:var(--gray-50);padding:10px 14px;border-radius:10px}
+        .qr-url-bar input{flex:1;border:none;background:none;font-family:inherit;font-size:12px;color:var(--gray-600);outline:none}
+        .qr-url-bar button{padding:5px 12px;background:var(--blue-600);color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit}
+        .qr-how{margin-top:28px;text-align:left}
+        .qr-how h3{font-size:14px;margin-bottom:10px;color:var(--gray-800)}
+        .qr-how ol{padding-left:18px;font-size:12px;color:var(--gray-600)}
+        .qr-how li{margin-bottom:6px}
+
+        /* detail modal */
+        .det-modal{background:white;border-radius:20px;padding:32px;max-width:680px;width:95%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,.15)}
+        .det-modal h2{margin-bottom:20px}
+        .det-close{float:right;background:var(--gray-100);border:none;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+        @media(max-width:768px){
+            .survey-header{padding:24px 20px}.survey-header h1{font-size:20px}
+            .card{padding:20px 16px}.ro label{width:36px;height:36px;font-size:12px}
+            .charts{grid-template-columns:1fr}.nav-tabs{gap:2px}.nav-tab{padding:6px 10px;font-size:11px}
+            .dash-head{flex-direction:column;align-items:flex-start}
+            .scale10 .ro label{width:30px;height:30px;font-size:10px}
+        }
+        @media(max-width:480px){.rs-label{display:none}.stats{grid-template-columns:repeat(2,1fr)}}
+        @media print{.nav,.dash-actions,.filter-bar{display:none!important}.page{display:block!important}}
+
+        /* Password Modal */
+        .pw-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+        .pw-overlay.show{display:flex}
+        .pw-box{background:white;border-radius:20px;padding:40px;text-align:center;max-width:380px;width:90%;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:pop .25s ease}
+        .pw-box .pw-icon{width:60px;height:60px;background:var(--blue-50);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}
+        .pw-box h2{font-size:18px;margin-bottom:6px;color:var(--gray-900)}
+        .pw-box p{font-size:12px;color:var(--gray-500);margin-bottom:20px}
+        .pw-box input{width:100%;padding:12px 16px;border:2px solid var(--gray-200);border-radius:10px;font-family:inherit;font-size:14px;text-align:center;letter-spacing:4px;transition:.2s}
+        .pw-box input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+        .pw-box input.pw-err{border-color:var(--red);animation:shake .4s ease}
+        @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+        .pw-box .pw-msg{font-size:11px;color:var(--red);margin-top:8px;min-height:16px}
+        .pw-box button{margin-top:16px;padding:11px 40px;background:var(--blue-600);color:white;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+        .pw-box button:hover{background:var(--blue-700)}
+        .pw-box .pw-cancel{background:none;color:var(--gray-400);font-size:12px;font-weight:400;margin-top:12px;padding:6px}
+        .pw-box .pw-cancel:hover{color:var(--gray-600);background:none}
+        .pw-setting{margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-100)}
+        .pw-setting summary{font-size:11px;color:var(--gray-400);cursor:pointer}
+        .pw-setting .pw-set-row{display:flex;gap:6px;margin-top:8px}
+        .pw-setting .pw-set-row input{letter-spacing:2px;font-size:12px;padding:8px 12px;flex:1}
+        .pw-setting .pw-set-row button{padding:8px 14px;font-size:11px;margin-top:0}
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-inner">
+        <div class="nav-logo">&#x1F393; 인턴 발표 평가</div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showPage('survey')">평가 입력</button>
+            <button class="nav-tab" onclick="showPage('dashboard')">결과 대시보드</button>
+            <button class="nav-tab" onclick="showPage('qr')">QR 코드</button>
+        </div>
+    </div>
+</nav>
+
+<!-- ==================== SURVEY PAGE ==================== -->
+<div id="page-survey" class="page active">
+<div class="survey-wrap">
+    <div class="survey-header">
+        <h1>&#x1F393; 인턴 발표 평가 설문지</h1>
+        <p>인턴분들의 과제 발표에 대한 평가를 부탁드립니다.<br>솔직하고 건설적인 피드백이 인턴의 성장에 큰 도움이 됩니다.</p>
+        <div class="badge-bar">
+            <strong>&#x1F4CC; 평가 기준 (5점 척도)</strong><br>
+            1점: 매우 미흡 &nbsp;|&nbsp; 2점: 미흡 &nbsp;|&nbsp; 3점: 보통 &nbsp;|&nbsp; 4점: 우수 &nbsp;|&nbsp; 5점: 매우 우수
+        </div>
+    </div>
+
+    <form id="eval-form" onsubmit="submitForm(event)">
+
+        <!-- S1: 기본정보 -->
+        <div class="card">
+            <div class="card-title">&#x1F4CC; Section 1. 기본 정보</div>
+            <div class="card-sub">평가자 및 평가 대상 인턴 정보를 입력해주세요.</div>
+            <div class="fg">
+                <label class="fl">평가자 이름 (익명 원하시면 미입력)</label>
+                <input type="text" class="fi" name="evaluator_name" placeholder="이름을 입력해주세요">
+            </div>
+            <div class="fg">
+                <label class="fl">평가 대상 인턴 이름<span class="req">*</span></label>
+                <select class="fi" name="intern_name" required>
+                    <option value="" disabled selected>인턴을 선택해주세요</option>
+                    <option value="김기현">김기현</option>
+                    <option value="임상민">임상민</option>
+                </select>
+                <div class="verr">인턴을 선택해주세요.</div>
+            </div>
+            <div class="fg">
+                <label class="fl">과제 주제 / 발표 제목<span class="req">*</span></label>
+                <input type="text" class="fi" name="presentation_topic" placeholder="발표 주제를 입력해주세요" required>
+                <div class="verr">필수 입력 항목입니다.</div>
+            </div>
+            <div class="fg">
+                <label class="fl">발표 일자<span class="req">*</span></label>
+                <input type="date" class="fi" name="presentation_date" required>
+                <div class="verr">필수 입력 항목입니다.</div>
+            </div>
+        </div>
+
+        <!-- S2: 과제 내용 & 완성도 (35%) -->
+        <div class="card">
+            <div class="card-title">&#x1F4C2; Section 2. 과제 내용 & 완성도 <span class="weight-tag">35%</span></div>
+            <div class="card-sub">과제의 내용과 결과물 품질을 평가해주세요.</div>
+            <div class="rq" data-field="q1">
+                <div class="rq-text">1. 과제의 목적과 목표를 명확히 이해하고 달성했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q1-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q2">
+                <div class="rq-text">2. 과제 결과물의 완성도가 높았나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q2-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q3">
+                <div class="rq-text">3. 문제 해결 접근 방식이 논리적이고 체계적이었나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q3-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q4">
+                <div class="rq-text">4. 데이터/근거 기반으로 결론을 도출했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q4-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <!-- S3: 발표력 & 커뮤니케이션 (25%) -->
+        <div class="card">
+            <div class="card-title">&#x1F3A4; Section 3. 발표력 & 커뮤니케이션 <span class="weight-tag">25%</span></div>
+            <div class="card-sub">발표 전달력과 자료 구성을 평가해주세요.</div>
+            <div class="rq" data-field="q5">
+                <div class="rq-text">5. 발표 내용을 명확하고 이해하기 쉽게 전달했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q5-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q6">
+                <div class="rq-text">6. 발표 자료(PPT 등)의 구성과 시각화가 적절했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q6-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q7">
+                <div class="rq-text">7. 발표 시간을 효율적으로 활용했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q7-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q8">
+                <div class="rq-text">8. 자신감 있고 전달력 있게 발표했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q8-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <!-- S4: Q&A 응답 능력 (20%) -->
+        <div class="card">
+            <div class="card-title">&#x2753; Section 4. Q&A 응답 능력 <span class="weight-tag">20%</span></div>
+            <div class="card-sub">질문 대응 능력을 평가해주세요.</div>
+            <div class="rq" data-field="q9">
+                <div class="rq-text">9. 질문에 대해 명확하고 논리적으로 답변했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q9-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q10">
+                <div class="rq-text">10. 모르는 내용에 대해 솔직하고 성숙하게 대응했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q10-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <!-- S5: 창의성 & 주도성 (15%) -->
+        <div class="card">
+            <div class="card-title">&#x1F4A1; Section 5. 창의성 & 주도성 <span class="weight-tag">15%</span></div>
+            <div class="card-sub">창의적 사고와 주도적 문제 해결 능력을 평가해주세요.</div>
+            <div class="rq" data-field="q11">
+                <div class="rq-text">11. 과제에서 창의적인 아이디어나 새로운 시각을 보여줬나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q11-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q12">
+                <div class="rq-text">12. 스스로 문제를 발굴하고 주도적으로 해결하려 했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q12-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <!-- S6: 태도 & 협업 (5%) -->
+        <div class="card">
+            <div class="card-title">&#x1F91D; Section 6. 태도 & 협업 <span class="weight-tag">5%</span></div>
+            <div class="card-sub">팀워크와 성장 태도를 평가해주세요.</div>
+            <div class="rq" data-field="q13">
+                <div class="rq-text">13. 팀원/멘토와의 협업 과정에서 적극적으로 참여했나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q13-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+            <div class="rq" data-field="q14">
+                <div class="rq-text">14. 피드백을 수용하고 개선하려는 태도를 보였나요?<span class="req">*</span></div>
+                <div class="rs"><span class="rs-label">매우 미흡</span><div class="rs-opts" id="q14-opts"></div><span class="rs-label">매우 우수</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <!-- S7: 주관식 피드백 -->
+        <div class="card">
+            <div class="card-title">&#x1F4AC; Section 7. 주관식 피드백</div>
+            <div class="card-sub">솔직한 의견이 인턴의 성장에 가장 큰 도움이 됩니다!</div>
+            <div class="fg">
+                <label class="fl">이번 발표에서 가장 인상 깊었던 점은 무엇인가요?</label>
+                <textarea class="fi" name="impressive_point" placeholder="자유롭게 작성해주세요"></textarea>
+            </div>
+            <div class="fg">
+                <label class="fl">개선이 필요한 부분이 있다면 구체적으로 알려주세요.</label>
+                <textarea class="fi" name="improvement" placeholder="자유롭게 작성해주세요"></textarea>
+            </div>
+            <div class="fg">
+                <label class="fl">이 인턴에게 전하고 싶은 한마디를 남겨주세요</label>
+                <textarea class="fi" name="message" placeholder="자유롭게 작성해주세요"></textarea>
+            </div>
+        </div>
+
+        <!-- S8: 종합 평가 -->
+        <div class="card">
+            <div class="card-title">&#x2B50; Section 8. 종합 평가</div>
+            <div class="card-sub">전체적인 평가를 종합해주세요.</div>
+
+            <div class="rq" data-field="overall_score">
+                <div class="rq-text">종합 점수 (전반적인 인턴 발표 역량 평가)<span class="req">*</span></div>
+                <div class="rs scale10"><span class="rs-label">1점 (매우 미흡)</span><div class="rs-opts" id="overall-opts"></div><span class="rs-label">10점 (매우 우수)</span></div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+
+            <div class="fg" data-field="competency_level">
+                <label class="fl">이 인턴의 전반적인 역량 수준은?<span class="req">*</span></label>
+                <div class="rg">
+                    <div class="ri"><input type="radio" name="competency_level" id="c1" value="기대 이하"><label for="c1">기대 이하</label></div>
+                    <div class="ri"><input type="radio" name="competency_level" id="c2" value="기대 수준"><label for="c2">기대 수준</label></div>
+                    <div class="ri"><input type="radio" name="competency_level" id="c3" value="기대 이상"><label for="c3">기대 이상</label></div>
+                    <div class="ri"><input type="radio" name="competency_level" id="c4" value="매우 뛰어남"><label for="c4">매우 뛰어남</label></div>
+                </div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+
+            <div class="fg" data-field="recommendation" style="margin-top:20px">
+                <label class="fl">이 인턴을 향후 정규직/재채용으로 추천하시겠습니까?<span class="req">*</span></label>
+                <div class="rg">
+                    <div class="ri"><input type="radio" name="recommendation" id="r1" value="적극 추천"><label for="r1">적극 추천</label></div>
+                    <div class="ri"><input type="radio" name="recommendation" id="r2" value="조건부 추천"><label for="r2">조건부 추천</label></div>
+                    <div class="ri"><input type="radio" name="recommendation" id="r3" value="보류"><label for="r3">보류 / 더 지켜봐야 함</label></div>
+                    <div class="ri"><input type="radio" name="recommendation" id="r4" value="추천하기 어려움"><label for="r4">추천하기 어려움</label></div>
+                </div>
+                <div class="verr">평가를 선택해주세요.</div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit">평가 제출하기</button>
+    </form>
+</div>
+</div>
+
+<!-- SUCCESS -->
+<div class="overlay" id="overlay-success">
+    <div class="modal">
+        <div class="chk">&#x2705;</div>
+        <h2>평가가 제출되었습니다!</h2>
+        <p>소중한 피드백 감사합니다.<br>인턴의 성장에 큰 도움이 될 것입니다.</p>
+        <button onclick="closeSuccess()">확인</button>
+    </div>
+</div>
+
+<!-- DETAIL -->
+<div class="overlay" id="overlay-detail">
+    <div class="det-modal" id="det-content"></div>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div class="pw-overlay" id="pw-overlay">
+    <div class="pw-box">
+        <div class="pw-icon">&#x1F512;</div>
+        <h2>관리자 인증</h2>
+        <p>결과 대시보드는 관리자만 접근할 수 있습니다.</p>
+        <input type="password" id="pw-input" placeholder="비밀번호 입력" maxlength="20" onkeydown="if(event.key==='Enter')checkPW()">
+        <div class="pw-msg" id="pw-msg"></div>
+        <button onclick="checkPW()">확인</button><br>
+        <button class="pw-cancel" onclick="cancelPW()">취소</button>
+        <details class="pw-setting">
+            <summary>비밀번호 변경</summary>
+            <div class="pw-set-row">
+                <input type="password" id="pw-old" placeholder="현재 비밀번호">
+                <input type="password" id="pw-new" placeholder="새 비밀번호">
+                <button onclick="changePW()">변경</button>
+            </div>
+            <div class="pw-msg" id="pw-change-msg" style="margin-top:6px"></div>
+        </details>
+    </div>
+</div>
+
+<!-- ==================== DASHBOARD PAGE ==================== -->
+<div id="page-dashboard" class="page">
+<div class="dash-wrap">
+    <div class="dash-head">
+        <h2>&#x1F4CA; 평가 결과 대시보드</h2>
+        <div class="dash-actions">
+            <button class="btn btn-green" onclick="exportExcel()">&#x1F4E5; 엑셀 다운로드</button>
+            <button class="btn btn-blue" onclick="exportDetailExcel()">&#x1F4CB; 상세 리포트</button>
+            <button class="btn btn-out" onclick="window.print()">&#x1F5A8; 인쇄</button>
+            <button class="btn btn-red" onclick="clearAll()">&#x1F5D1; 초기화</button>
+        </div>
+    </div>
+    <div class="stats" id="stats-area">
+        <div class="stat"><div class="si">&#x1F4DD;</div><div class="sv" id="s-total">0</div><div class="sl">총 평가 수</div></div>
+        <div class="stat"><div class="si">&#x1F464;</div><div class="sv" id="s-interns">0</div><div class="sl">평가 인턴 수</div></div>
+        <div class="stat"><div class="si">&#x2B50;</div><div class="sv" id="s-avg">-</div><div class="sl">평균 종합 점수</div></div>
+        <div class="stat"><div class="si">&#x1F3C6;</div><div class="sv" id="s-rec">-</div><div class="sl">적극 추천 비율</div></div>
+    </div>
+    <div class="filter-bar">
+        <label>인턴 필터:</label>
+        <select id="f-intern" onchange="refreshDash()"><option value="">전체</option></select>
+        <label>기간:</label>
+        <input type="date" id="f-from" onchange="refreshDash()">
+        <span style="color:var(--gray-400)">~</span>
+        <input type="date" id="f-to" onchange="refreshDash()">
+    </div>
+    <div class="charts" id="charts-area">
+        <div class="chart-card"><h3>&#x1F4CA; 영역별 평균 점수</h3><div class="chart-box"><canvas id="ch-radar"></canvas></div></div>
+        <div class="chart-card"><h3>&#x1F4C8; 인턴별 가중 평균</h3><div class="chart-box"><canvas id="ch-bar"></canvas></div></div>
+        <div class="chart-card"><h3>&#x1F4CA; 역량 수준 분포</h3><div class="chart-box"><canvas id="ch-comp"></canvas></div></div>
+        <div class="chart-card"><h3>&#x1F4CA; 추천 현황</h3><div class="chart-box"><canvas id="ch-rec"></canvas></div></div>
+    </div>
+    <div id="reports-area"></div>
+    <div class="tbl-card"><h3>&#x1F4CB; 전체 응답 목록</h3><div id="tbl-body"></div></div>
+</div>
+</div>
+
+<!-- ==================== QR PAGE ==================== -->
+<div id="page-qr" class="page">
+<div class="qr-wrap">
+    <div class="qr-card">
+        <h2>&#x1F4F1; QR 코드로 설문 배포</h2>
+        <p>아래 QR 코드를 스마트폰으로 스캔하면<br>바로 평가 페이지로 접속할 수 있습니다.</p>
+
+        <div class="qr-img-wrap" id="qr-container">
+        </div>
+
+        <div class="qr-actions">
+            <button class="btn btn-blue" onclick="downloadQR()">&#x1F4E5; QR 이미지 저장</button>
+            <button class="btn btn-out" onclick="copyURL()">&#x1F4CB; URL 복사</button>
+        </div>
+
+        <div class="qr-url-bar">
+            <input type="text" id="qr-url-show" readonly>
+            <button onclick="copyURL()">복사</button>
+        </div>
+
+        <div class="qr-how">
+            <h3>&#x1F4A1; 사용 방법</h3>
+            <ol>
+                <li>이 HTML 파일을 웹 서버에 호스팅합니다 (GitHub Pages, Netlify, Vercel 등 무료 가능)</li>
+                <li>발표 종료 후 이 QR 코드를 화면에 띄워 청중이 스캔하도록 안내합니다</li>
+                <li>평가자들이 각자 스마트폰에서 설문을 작성하여 제출합니다</li>
+                <li>"결과 대시보드" 탭에서 실시간 결과를 확인하고 엑셀로 다운로드합니다</li>
+            </ol>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+// ===== Init rating options =====
+function makeOpts(id, name, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let h = '';
+    for (let i = 1; i <= max; i++) h += `<div class="ro"><input type="radio" name="${name}" id="${name}_${i}" value="${i}"><label for="${name}_${i}">${i}</label></div>`;
+    el.innerHTML = h;
+}
+for (let i = 1; i <= 14; i++) makeOpts(`q${i}-opts`, `q${i}`, 5);
+makeOpts('overall-opts', 'overall_score', 10);
+
+// ===== Password =====
+const DEFAULT_PW = 'diacoaos1@';
+let dashUnlocked = false;
+
+function getPW() { return localStorage.getItem('intern_eval_pw') || DEFAULT_PW; }
+
+function checkPW() {
+    const inp = document.getElementById('pw-input');
+    if (inp.value === getPW()) {
+        dashUnlocked = true;
+        document.getElementById('pw-overlay').classList.remove('show');
+        inp.value = '';
+        document.getElementById('pw-msg').textContent = '';
+        goToDash();
+    } else {
+        inp.classList.add('pw-err');
+        document.getElementById('pw-msg').textContent = '비밀번호가 틀렸습니다.';
+        setTimeout(() => inp.classList.remove('pw-err'), 400);
+        inp.value = '';
+        inp.focus();
+    }
+}
+
+function cancelPW() {
+    document.getElementById('pw-overlay').classList.remove('show');
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-msg').textContent = '';
+    showPage('survey');
+}
+
+function changePW() {
+    const old = document.getElementById('pw-old');
+    const nw = document.getElementById('pw-new');
+    const msg = document.getElementById('pw-change-msg');
+    if (old.value !== getPW()) { msg.textContent = '현재 비밀번호가 틀렸습니다.'; msg.style.color = 'var(--red)'; return; }
+    if (!nw.value || nw.value.length < 2) { msg.textContent = '새 비밀번호를 2자 이상 입력해주세요.'; msg.style.color = 'var(--red)'; return; }
+    localStorage.setItem('intern_eval_pw', nw.value);
+    msg.textContent = '비밀번호가 변경되었습니다!'; msg.style.color = 'var(--green)';
+    old.value = ''; nw.value = '';
+}
+
+function goToDash() {
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('page-dashboard').classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(t => { if (t.textContent === '결과 대시보드') t.classList.add('active'); });
+    refreshDash();
+}
+
+// ===== Page Nav =====
+function showPage(p) {
+    if (p === 'dashboard') {
+        if (!dashUnlocked) {
+            document.getElementById('pw-overlay').classList.add('show');
+            setTimeout(() => document.getElementById('pw-input').focus(), 100);
+            return;
+        }
+        goToDash();
+        return;
+    }
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('page-' + p).classList.add('active');
+    const labels = { survey: '평가 입력', dashboard: '결과 대시보드', qr: 'QR 코드' };
+    document.querySelectorAll('.nav-tab').forEach(t => { if (t.textContent === labels[p]) t.classList.add('active'); });
+    if (p === 'qr') genQR();
+}
+
+// ===== Storage =====
+const KEY = 'intern_evals';
+function getData() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
+function saveOne(d) { const all = getData(); d.id = Date.now(); d.submitted_at = new Date().toISOString(); all.push(d); localStorage.setItem(KEY, JSON.stringify(all)); }
+
+// ===== Validation & Submit =====
+function validate() {
+    let ok = true;
+    document.querySelectorAll('.has-error').forEach(el => el.classList.remove('has-error'));
+    ['intern_name','presentation_topic','presentation_date'].forEach(n => {
+        const inp = document.querySelector(`[name="${n}"]`);
+        if (!inp.value.trim()) { inp.closest('.fg').classList.add('has-error'); ok = false; }
+    });
+    for (let i = 1; i <= 14; i++) {
+        if (!document.querySelector(`input[name="q${i}"]:checked`)) { document.querySelector(`[data-field="q${i}"]`).classList.add('has-error'); ok = false; }
+    }
+    if (!document.querySelector('input[name="overall_score"]:checked')) { document.querySelector('[data-field="overall_score"]').classList.add('has-error'); ok = false; }
+    if (!document.querySelector('input[name="competency_level"]:checked')) { document.querySelector('[data-field="competency_level"]').classList.add('has-error'); ok = false; }
+    if (!document.querySelector('input[name="recommendation"]:checked')) { document.querySelector('[data-field="recommendation"]').classList.add('has-error'); ok = false; }
+    if (!ok) { const e = document.querySelector('.has-error'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    return ok;
+}
+
+function submitForm(e) {
+    e.preventDefault();
+    if (!validate()) return;
+    const fd = new FormData(document.getElementById('eval-form'));
+    const d = {};
+    fd.forEach((v, k) => d[k] = v);
+    // weighted score
+    const W = { content: { q: [1,2,3,4], w: .35 }, pres: { q: [5,6,7,8], w: .25 }, qa: { q: [9,10], w: .20 }, creative: { q: [11,12], w: .15 }, attitude: { q: [13,14], w: .05 } };
+    let ws = 0;
+    for (const c of Object.values(W)) {
+        const avg = c.q.reduce((s, q) => s + parseInt(d['q' + q]), 0) / c.q.length;
+        ws += (avg / 5) * 100 * c.w;
+    }
+    d.weighted_score = Math.round(ws * 10) / 10;
+    saveOne(d);
+    document.getElementById('overlay-success').classList.add('show');
+}
+
+function closeSuccess() {
+    document.getElementById('overlay-success').classList.remove('show');
+    document.getElementById('eval-form').reset();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== Dashboard =====
+let CX = {};
+function kill(id) { if (CX[id]) { CX[id].destroy(); delete CX[id]; } }
+
+function refreshDash() {
+    let data = getData();
+    const fi = document.getElementById('f-intern').value;
+    const ff = document.getElementById('f-from').value;
+    const ft = document.getElementById('f-to').value;
+    if (fi) data = data.filter(r => r.intern_name === fi);
+    if (ff) data = data.filter(r => r.presentation_date >= ff);
+    if (ft) data = data.filter(r => r.presentation_date <= ft);
+
+    // update filter opts
+    const all = getData();
+    const names = [...new Set(all.map(r => r.intern_name))];
+    const sel = document.getElementById('f-intern');
+    const cv = sel.value;
+    sel.innerHTML = '<option value="">전체</option>' + names.map(n => `<option value="${n}" ${n===cv?'selected':''}>${n}</option>`).join('');
+
+    // stats
+    document.getElementById('s-total').textContent = data.length;
+    document.getElementById('s-interns').textContent = [...new Set(data.map(r => r.intern_name))].length;
+    if (data.length) {
+        document.getElementById('s-avg').textContent = (data.reduce((s, r) => s + parseInt(r.overall_score), 0) / data.length).toFixed(1);
+        const rc = data.filter(r => r.recommendation === '적극 추천').length;
+        document.getElementById('s-rec').textContent = Math.round(rc / data.length * 100) + '%';
+    } else {
+        document.getElementById('s-avg').textContent = '-';
+        document.getElementById('s-rec').textContent = '-';
+    }
+
+    if (!data.length) {
+        document.getElementById('charts-area').style.display = 'none';
+        document.getElementById('reports-area').innerHTML = '';
+        document.getElementById('tbl-body').innerHTML = '<div class="empty"><h3>아직 제출된 평가가 없습니다</h3><p>"평가 입력" 탭에서 설문을 제출해주세요.</p></div>';
+        return;
+    }
+    document.getElementById('charts-area').style.display = 'grid';
+    drawCharts(data);
+    drawReports(data);
+    drawTable(data);
+}
+
+function drawCharts(data) {
+    const cats = [
+        { n: '과제 내용/완성도', q: [1,2,3,4] },
+        { n: '발표력/커뮤니케이션', q: [5,6,7,8] },
+        { n: 'Q&A 응답 능력', q: [9,10] },
+        { n: '창의성/주도성', q: [11,12] },
+        { n: '태도/협업', q: [13,14] }
+    ];
+    const catAvg = cats.map(c => {
+        const t = data.reduce((s, r) => s + c.q.reduce((a, q) => a + parseInt(r['q'+q]||0), 0) / c.q.length, 0);
+        return +(t / data.length).toFixed(2);
+    });
+
+    kill('ch-radar');
+    CX['ch-radar'] = new Chart(document.getElementById('ch-radar'), {
+        type: 'radar',
+        data: { labels: cats.map(c => c.n), datasets: [{ label: '평균', data: catAvg, backgroundColor: 'rgba(37,99,235,.12)', borderColor: '#2563EB', borderWidth: 2, pointBackgroundColor: '#2563EB', pointRadius: 5 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
+    });
+
+    const iNames = [...new Set(data.map(r => r.intern_name))];
+    const iAvgs = iNames.map(n => {
+        const rs = data.filter(r => r.intern_name === n);
+        return +(rs.reduce((s, r) => s + parseFloat(r.weighted_score||0), 0) / rs.length).toFixed(1);
+    });
+    kill('ch-bar');
+    CX['ch-bar'] = new Chart(document.getElementById('ch-bar'), {
+        type: 'bar',
+        data: { labels: iNames, datasets: [{ label: '가중 평균', data: iAvgs, backgroundColor: iAvgs.map(v => v >= 80 ? '#10B981' : v >= 60 ? '#F59E0B' : '#EF4444'), borderRadius: 8, barThickness: 36 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
+    });
+
+    const compL = ['기대 이하','기대 수준','기대 이상','매우 뛰어남'];
+    kill('ch-comp');
+    CX['ch-comp'] = new Chart(document.getElementById('ch-comp'), {
+        type: 'doughnut',
+        data: { labels: compL, datasets: [{ data: compL.map(l => data.filter(r => r.competency_level === l).length), backgroundColor: ['#EF4444','#F59E0B','#10B981','#2563EB'], borderWidth: 0, hoverOffset: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 14, font: { size: 11 } } } } }
+    });
+
+    const recL = ['적극 추천','조건부 추천','보류','추천하기 어려움'];
+    kill('ch-rec');
+    CX['ch-rec'] = new Chart(document.getElementById('ch-rec'), {
+        type: 'doughnut',
+        data: { labels: recL, datasets: [{ data: recL.map(l => data.filter(r => r.recommendation === l).length), backgroundColor: ['#2563EB','#10B981','#F59E0B','#EF4444'], borderWidth: 0, hoverOffset: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 14, font: { size: 11 } } } } }
+    });
+}
+
+function drawReports(data) {
+    const el = document.getElementById('reports-area');
+    const names = [...new Set(data.map(r => r.intern_name))];
+    const cats = [
+        { n: '과제 내용/완성도', q: [1,2,3,4], w: 35 },
+        { n: '발표력/커뮤니케이션', q: [5,6,7,8], w: 25 },
+        { n: 'Q&A 응답 능력', q: [9,10], w: 20 },
+        { n: '창의성/주도성', q: [11,12], w: 15 },
+        { n: '태도/협업', q: [13,14], w: 5 }
+    ];
+    const bc = (s, m) => { const p = s/m; return p >= .8 ? 'var(--green)' : p >= .6 ? 'var(--yellow)' : 'var(--red)'; };
+    const esc = s => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+    el.innerHTML = names.map(name => {
+        const rs = data.filter(r => r.intern_name === name);
+        const aw = (rs.reduce((s,r) => s + parseFloat(r.weighted_score||0), 0) / rs.length).toFixed(1);
+        const ao = (rs.reduce((s,r) => s + parseInt(r.overall_score||0), 0) / rs.length).toFixed(1);
+        const cs = cats.map(c => {
+            const a = rs.reduce((s,r) => s + c.q.reduce((x,q) => x + parseInt(r['q'+q]||0), 0) / c.q.length, 0) / rs.length;
+            return { ...c, avg: +(a).toFixed(2) };
+        });
+        return `<div class="rpt">
+            <div class="rpt-head">
+                <div><div class="rpt-name">${esc(name)}</div><div class="rpt-meta">평가 ${rs.length}건 | 최근: ${rs[rs.length-1].presentation_date}</div></div>
+                <span class="badge ${parseFloat(aw)>=80?'b-hi':parseFloat(aw)>=60?'b-md':'b-lo'}" style="font-size:14px;padding:7px 14px">가중 점수: ${aw}</span>
+            </div>
+            <div class="rpt-scores">
+                ${cs.map(c => `<div class="rpt-si"><div class="cat">${c.n}</div><div class="val">${c.avg.toFixed(1)}</div><div class="mx">/ 5.0 (${c.w}%)</div></div>`).join('')}
+                <div class="rpt-si"><div class="cat">종합 점수</div><div class="val">${ao}</div><div class="mx">/ 10.0</div></div>
+            </div>
+            ${cs.map(c => `<div class="pb"><div class="pb-l"><span>${c.n}</span><span>${c.avg.toFixed(1)} / 5.0</span></div><div class="pb-t"><div class="pb-f" style="width:${c.avg/5*100}%;background:${bc(c.avg,5)}"></div></div></div>`).join('')}
+            ${rs.some(r => r.impressive_point||r.improvement||r.message) ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-100)">
+                <h4 style="font-size:13px;margin-bottom:10px;color:var(--gray-600)">주관식 피드백</h4>
+                ${rs.filter(r=>r.impressive_point).map(r=>`<div class="fb-item" style="background:var(--green-bg)"><b>인상 깊은 점:</b> ${esc(r.impressive_point)}</div>`).join('')}
+                ${rs.filter(r=>r.improvement).map(r=>`<div class="fb-item" style="background:var(--yellow-bg)"><b>개선 필요:</b> ${esc(r.improvement)}</div>`).join('')}
+                ${rs.filter(r=>r.message).map(r=>`<div class="fb-item" style="background:var(--blue-50)"><b>한마디:</b> ${esc(r.message)}</div>`).join('')}
+            </div>` : ''}
+        </div>`;
+    }).join('');
+}
+
+function drawTable(data) {
+    const esc = s => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+    let h = `<table class="rt"><thead><tr><th>#</th><th>인턴</th><th>평가자</th><th>발표일</th><th>가중점수</th><th>종합(10)</th><th>역량수준</th><th>추천</th><th>상세</th></tr></thead><tbody>`;
+    data.forEach((r, i) => {
+        const w = parseFloat(r.weighted_score||0);
+        h += `<tr><td>${i+1}</td><td><b>${esc(r.intern_name)}</b></td><td>${esc(r.evaluator_name||'익명')}</td><td>${r.presentation_date}</td>
+        <td><span class="badge ${w>=80?'b-hi':w>=60?'b-md':'b-lo'}">${w}</span></td><td>${r.overall_score}/10</td><td>${esc(r.competency_level)}</td><td>${esc(r.recommendation)}</td>
+        <td><button class="btn btn-out" style="padding:3px 8px;font-size:10px" onclick="showDet(${r.id})">보기</button></td></tr>`;
+    });
+    document.getElementById('tbl-body').innerHTML = h + '</tbody></table>';
+}
+
+function showDet(id) {
+    const r = getData().find(x => x.id === id);
+    if (!r) return;
+    const esc = s => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+    const ql = ['1. 목적/목표 달성','2. 결과물 완성도','3. 접근 방식','4. 근거 기반 결론','5. 전달력','6. 자료 구성','7. 시간 활용','8. 자신감/전달력','9. 답변 논리성','10. 솔직한 대응','11. 창의적 아이디어','12. 주도적 해결','13. 협업 참여','14. 피드백 수용'];
+    let h = `<button class="det-close" onclick="closeDet()">&times;</button><h2>${esc(r.intern_name)} 상세 평가</h2>
+    <div class="rpt-meta" style="margin-bottom:16px">평가자: ${esc(r.evaluator_name||'익명')} | 발표일: ${r.presentation_date} | 주제: ${esc(r.presentation_topic)}</div>
+    ${ql.map((l,i) => { const s=parseInt(r['q'+(i+1)]); const p=s/5*100; return `<div class="pb"><div class="pb-l"><span>${l}</span><span>${s}/5</span></div><div class="pb-t"><div class="pb-f" style="width:${p}%;background:${p>=80?'var(--green)':p>=60?'var(--yellow)':'var(--red)'}"></div></div></div>`; }).join('')}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0">
+        <div class="rpt-si"><div class="cat">가중 점수</div><div class="val">${r.weighted_score}</div></div>
+        <div class="rpt-si"><div class="cat">종합 점수</div><div class="val">${r.overall_score}/10</div></div>
+        <div class="rpt-si"><div class="cat">역량 수준</div><div class="val" style="font-size:13px">${esc(r.competency_level)}</div></div>
+    </div>
+    ${r.impressive_point ? `<div class="fb-item" style="background:var(--green-bg)"><b>인상 깊은 점:</b> ${esc(r.impressive_point)}</div>` : ''}
+    ${r.improvement ? `<div class="fb-item" style="background:var(--yellow-bg)"><b>개선 필요:</b> ${esc(r.improvement)}</div>` : ''}
+    ${r.message ? `<div class="fb-item" style="background:var(--blue-50)"><b>한마디:</b> ${esc(r.message)}</div>` : ''}`;
+    document.getElementById('det-content').innerHTML = h;
+    document.getElementById('overlay-detail').classList.add('show');
+}
+function closeDet() { document.getElementById('overlay-detail').classList.remove('show'); }
+document.getElementById('overlay-detail').addEventListener('click', function(e) { if (e.target === this) closeDet(); });
+
+// ===== Excel =====
+function exportExcel() {
+    const data = getData();
+    if (!data.length) return alert('데이터가 없습니다.');
+    const hd = ['번호','제출일시','평가자','인턴','발표주제','발표일','Q1_목적달성','Q2_완성도','Q3_접근방식','Q4_근거기반','Q5_전달력','Q6_자료구성','Q7_시간활용','Q8_자신감','Q9_답변논리','Q10_솔직대응','Q11_창의성','Q12_주도성','Q13_협업참여','Q14_피드백수용','가중점수(100)','종합점수(10)','역량수준','추천여부','인상깊은점','개선필요','한마디'];
+    const rows = data.map((r,i) => [i+1,new Date(r.submitted_at).toLocaleString('ko-KR'),r.evaluator_name||'익명',r.intern_name,r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
+    const ws = XLSX.utils.aoa_to_sheet([hd,...rows]);
+    ws['!cols'] = hd.map((_,i) => ({ wch: i >= 24 ? 28 : 14 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '전체응답');
+    XLSX.writeFile(wb, `인턴평가_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function exportDetailExcel() {
+    const data = getData();
+    if (!data.length) return alert('데이터가 없습니다.');
+    const wb = XLSX.utils.book_new();
+    // sheet1: raw
+    const hd = ['번호','제출일시','평가자','인턴','발표주제','발표일','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','가중점수','종합점수','역량수준','추천여부','인상깊은점','개선필요','한마디'];
+    const rows = data.map((r,i) => [i+1,new Date(r.submitted_at).toLocaleString('ko-KR'),r.evaluator_name||'익명',r.intern_name,r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
+    const ws1 = XLSX.utils.aoa_to_sheet([hd,...rows]); ws1['!cols'] = hd.map(() => ({ wch: 15 }));
+    XLSX.utils.book_append_sheet(wb, ws1, '전체응답');
+    // sheet2: summary
+    const names = [...new Set(data.map(r => r.intern_name))];
+    const cats = [{n:'과제내용(35%)',q:[1,2,3,4]},{n:'발표력(25%)',q:[5,6,7,8]},{n:'QA(20%)',q:[9,10]},{n:'창의성(15%)',q:[11,12]},{n:'태도(5%)',q:[13,14]}];
+    const sh = ['인턴','평가수',...cats.map(c=>c.n),'가중평균','종합평균','역량수준(최다)','추천(최다)'];
+    const mode = arr => { const f={}; arr.forEach(v=>f[v]=(f[v]||0)+1); return Object.entries(f).sort((a,b)=>b[1]-a[1])[0]?.[0]||''; };
+    const sr = names.map(n => {
+        const rs = data.filter(r => r.intern_name === n);
+        const ca = cats.map(c => +(rs.reduce((s,r) => s + c.q.reduce((a,q) => a + parseInt(r['q'+q]||0), 0) / c.q.length, 0) / rs.length).toFixed(2));
+        return [n, rs.length, ...ca, +(rs.reduce((s,r)=>s+parseFloat(r.weighted_score||0),0)/rs.length).toFixed(1), +(rs.reduce((s,r)=>s+parseInt(r.overall_score||0),0)/rs.length).toFixed(1), mode(rs.map(r=>r.competency_level)), mode(rs.map(r=>r.recommendation))];
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet([sh,...sr]); ws2['!cols'] = sh.map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws2, '인턴별요약');
+    XLSX.writeFile(wb, `인턴평가_상세리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function clearAll() {
+    if (!confirm('모든 평가 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    if (!confirm('정말로 삭제하시겠습니까? 마지막 확인입니다.')) return;
+    localStorage.removeItem(KEY);
+    refreshDash();
+    alert('모든 데이터가 삭제되었습니다.');
+}
+
+// ===== QR =====
+let qrInstance = null;
+function genQR() {
+    const url = window.location.href.split('#')[0].split('?')[0];
+    document.getElementById('qr-url-show').value = url;
+    const container = document.getElementById('qr-container');
+    container.innerHTML = '';
+    qrInstance = new QRCode(container, {
+        text: url,
+        width: 220,
+        height: 220,
+        colorDark: '#1E3A8A',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+}
+
+function downloadQR() {
+    const container = document.getElementById('qr-container');
+    const img = container.querySelector('img');
+    const canvas = container.querySelector('canvas');
+    const a = document.createElement('a');
+    a.download = 'intern-eval-qr.png';
+    if (img && img.src) {
+        a.href = img.src;
+    } else if (canvas) {
+        a.href = canvas.toDataURL();
+    }
+    a.click();
+}
+
+function copyURL() {
+    const url = document.getElementById('qr-url-show').value;
+    navigator.clipboard.writeText(url).then(() => {
+        const btns = document.querySelectorAll('.qr-url-bar button, .qr-actions .btn-out');
+        btns.forEach(b => { if (b.textContent.includes('복사') || b.textContent.includes('URL')) { const orig = b.textContent; b.textContent = '복사됨!'; setTimeout(() => b.textContent = orig, 1500); } });
+    });
+}
+
+// ===== Init =====
+document.querySelector('[name="presentation_date"]').valueAsDate = new Date();
+// QR auto-generate on load
+try { genQR(); } catch(e) {}
+</script>
+</body>
+</html>
