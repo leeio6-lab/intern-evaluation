@@ -868,8 +868,9 @@ function clearAll() {
 
 // ===== QR =====
 let qrInstance = null;
+const DEPLOY_URL = 'https://leeio6-lab.github.io/intern-evaluation/';
 function genQR() {
-    const url = window.location.href.split('#')[0].split('?')[0];
+    const url = DEPLOY_URL;
     document.getElementById('qr-url-show').value = url;
     const container = document.getElementById('qr-container');
     container.innerHTML = '';
