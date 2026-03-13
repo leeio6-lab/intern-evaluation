@@ -449,6 +449,7 @@
         </div>
     </div>
 
+    <div id="dash-server-status" style="padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px;display:none"></div>
     <div class="stats" id="stats-area">
         <div class="stat"><div class="si">&#x1F4DD;</div><div class="sv" id="s-total">0</div><div class="sl">총 평가 수</div></div>
         <div class="stat"><div class="si">&#x1F464;</div><div class="sv" id="s-interns">0</div><div class="sl">평가 인턴 수</div></div>
@@ -613,14 +614,14 @@ async function postToServer(data) {
 // GET from Google Apps Script
 async function fetchFromServer() {
     const url = getScriptUrl();
-    if (!url) return [];
+    if (!url) return { ok: false, data: [], error: '서버 URL이 설정되지 않았습니다.' };
     try {
-        const res = await fetch(url, { redirect: 'follow' });
-        if (!res.ok) throw new Error('fetch failed');
+        const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now(), { redirect: 'follow' });
+        if (!res.ok) return { ok: false, data: [], error: '서버 응답 오류 (HTTP ' + res.status + ')' };
         const data = await res.json();
-        return Array.isArray(data) ? data : [];
+        return { ok: true, data: Array.isArray(data) ? data : [], error: null };
     } catch(e) {
-        return [];
+        return { ok: false, data: [], error: '서버 연결 실패: ' + e.message };
     }
 }
 
@@ -673,6 +674,8 @@ async function submitForm(e) {
         btn.disabled = false;
         btn.textContent = '평가 제출하기';
         document.getElementById('overlay-success').classList.add('show');
+        // 서버에 저장 후 대시보드 데이터 미리 갱신
+        setTimeout(() => { try { refreshDash(); } catch(e) {} }, 2000);
     } catch(err) {
         btn.disabled = false;
         btn.textContent = '평가 제출하기';
@@ -775,35 +778,20 @@ async function testAndSave() {
     resultEl.innerHTML = '<span style="color:var(--blue-600)">서버에 연결 중...</span>';
 
     try {
-        const res = await fetch(url, { redirect: 'follow' });
+        const res = await fetch(url + '?_t=' + Date.now(), { redirect: 'follow' });
         if (res.ok) {
             const data = await res.json();
             localStorage.setItem('intern_eval_script_url', url);
             resultEl.innerHTML = '<span style="color:var(--green);font-weight:600">&#x2705; 연결 성공! 서버에 저장된 평가: ' + (Array.isArray(data) ? data.length : 0) + '건</span>';
-            setTimeout(() => {
-                initDashSettings();
-                refreshDash();
-                try { genQR(); } catch(e) {}
-                updateSubmitStatus();
-            }, 1000);
+            initDashSettings();
+            refreshDash();
+            try { genQR(); } catch(e) {}
+            updateSubmitStatus();
         } else {
-            throw new Error('응답 오류');
+            throw new Error('서버 응답 오류 (HTTP ' + res.status + ')');
         }
     } catch(e) {
-        // no-cors fallback: try saving and assume it worked
-        try {
-            await fetch(url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({test:true}), redirect: 'follow' });
-            localStorage.setItem('intern_eval_script_url', url);
-            resultEl.innerHTML = '<span style="color:var(--green);font-weight:600">&#x2705; URL 저장 완료! (CORS 정책으로 직접 확인 불가하지만 데이터 전송은 정상 동작합니다)</span>';
-            setTimeout(() => {
-                initDashSettings();
-                refreshDash();
-                try { genQR(); } catch(e) {}
-                updateSubmitStatus();
-            }, 1000);
-        } catch(e2) {
-            resultEl.innerHTML = '<span style="color:var(--red)">연결 실패. URL을 확인하고 Apps Script가 "모든 사용자"로 배포되었는지 확인해주세요.</span>';
-        }
+        resultEl.innerHTML = '<span style="color:var(--red)">연결 실패: ' + e.message + '<br>Apps Script 배포 설정을 확인하세요:<br>1. [배포] → [새 배포] → 유형: "웹 앱"<br>2. "액세스 권한": <b>모든 사용자</b> (Google 계정 필요 없음)</span>';
     }
     btn.disabled = false;
     btn.innerHTML = '&#x1F50C; 연결 테스트';
@@ -814,8 +802,24 @@ let CX = {};
 function kill(id) { if (CX[id]) { CX[id].destroy(); delete CX[id]; } }
 
 async function refreshDash() {
-    let data = await fetchFromServer();
-    renderDashWithData(data);
+    const statusEl = document.getElementById('dash-server-status');
+    statusEl.style.display = 'block';
+    statusEl.style.background = 'var(--blue-50)';
+    statusEl.style.color = 'var(--blue-700)';
+    statusEl.textContent = '서버에서 데이터 불러오는 중...';
+
+    const result = await fetchFromServer();
+    if (result.ok) {
+        statusEl.style.background = 'var(--green-bg)';
+        statusEl.style.color = '#065F46';
+        statusEl.textContent = '서버 연동됨 - Google 스프레드시트에서 ' + result.data.length + '건 로드 완료';
+        renderDashWithData(result.data);
+    } else {
+        statusEl.style.background = 'var(--red-bg)';
+        statusEl.style.color = '#991B1B';
+        statusEl.textContent = result.error;
+        renderDashWithData([]);
+    }
 }
 
 // Called from filter changes (sync, uses cached data)
