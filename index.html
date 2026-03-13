@@ -228,8 +228,8 @@
         <div class="nav-logo">&#x1F393; 회계1팀 인턴 발표 평가</div>
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showPage('survey')">평가</button>
-            <button class="nav-tab" onclick="showPage('dashboard')">대시보드</button>
-            <button class="nav-tab" onclick="showPage('qr')">QR</button>
+            <button class="nav-tab" onclick="showPage('dashboard')" id="tab-dash" style="display:none">대시보드</button>
+            <button class="nav-tab" onclick="showPage('qr')" id="tab-qr" style="display:none">QR</button>
         </div>
     </div>
 </nav>
@@ -1022,6 +1022,16 @@ function copyURL() {
         document.querySelectorAll('.qr-url-bar button').forEach(b => { const o = b.textContent; b.textContent = '복사됨!'; setTimeout(() => b.textContent = o, 1500); });
     });
 }
+
+// ===== Ctrl+D → 대시보드 (숨김 접근) =====
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        document.getElementById('tab-dash').style.display = '';
+        document.getElementById('tab-qr').style.display = '';
+        showPage('dashboard');
+    }
+});
 
 // ===== Init =====
 document.querySelector('[name="presentation_date"]').valueAsDate = new Date();
