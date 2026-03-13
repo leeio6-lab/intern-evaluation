@@ -69,10 +69,9 @@
         .ro label{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;border:2px solid var(--gray-200);font-size:15px;font-weight:600;color:var(--gray-400);cursor:pointer;transition:.15s;background:white;-webkit-tap-highlight-color:transparent;user-select:none}
         .ro label:active{transform:scale(.92)}
         .ro input:checked+label{background:var(--blue-600);border-color:var(--blue-600);color:white;box-shadow:0 2px 8px rgba(37,99,235,.35);transform:scale(1.05)}
-        .scale10 .rs{flex-wrap:wrap;justify-content:center;gap:4px}
-        .scale10 .rs-opts{gap:6px;flex-wrap:wrap;justify-content:center}
-        .scale10 .ro label{width:36px;height:36px;font-size:13px}
-        .scale10 .rs-label{width:100%;text-align:center;min-width:unset;font-size:11px}
+        .scale10 .rs-label{display:none}
+        .scale10 .rs-opts{gap:3px}
+        .scale10 .ro label{width:28px;height:28px;font-size:11px;border-width:1.5px}
 
         /* radio group */
         .rg{display:flex;flex-direction:column;gap:7px}
@@ -209,14 +208,15 @@
             .nav-tab{padding:8px 18px;font-size:13px}
             .survey-header{padding:36px 32px}
             .survey-header h1{font-size:24px}
-            .scale10 .ro label{width:40px;height:40px;font-size:14px}
-            .scale10 .rs-opts{gap:8px}
+            .scale10 .rs-label{display:inline}
+            .scale10 .rs-opts{gap:6px}
+            .scale10 .ro label{width:36px;height:36px;font-size:13px}
         }
         @media(max-width:370px){
             .ro label{width:40px;height:40px;font-size:13px}
             .rs-label{display:none}
-            .scale10 .rs-opts{gap:4px}
-            .scale10 .ro label{width:30px;height:30px;font-size:11px}
+            .scale10 .rs-opts{gap:2px}
+            .scale10 .ro label{width:26px;height:26px;font-size:10px}
         }
         @media print{.nav,.dash-actions,.filter-bar,.settings-bar{display:none!important}.page{display:block!important}}
     </style>
@@ -591,6 +591,13 @@ const KEY = 'intern_evals';
 function getLocal() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
 function saveLocal(d) { const all = getLocal(); all.push(d); localStorage.setItem(KEY, JSON.stringify(all)); }
 
+// URL 파라미터에서 gas= 값을 읽어 자동 저장 (QR로 접속 시 자동 연동)
+(function() {
+    const p = new URLSearchParams(window.location.search);
+    const gas = p.get('gas');
+    if (gas) { localStorage.setItem('intern_eval_script_url', gas); }
+})();
+
 function getScriptUrl() { return localStorage.getItem('intern_eval_script_url') || ''; }
 
 // POST to Google Apps Script
@@ -777,6 +784,8 @@ async function testAndSave() {
             setTimeout(() => {
                 initDashSettings();
                 refreshDash();
+                try { genQR(); } catch(e) {}
+                updateSubmitStatus();
             }, 1000);
         } else {
             throw new Error('응답 오류');
@@ -790,6 +799,8 @@ async function testAndSave() {
             setTimeout(() => {
                 initDashSettings();
                 refreshDash();
+                try { genQR(); } catch(e) {}
+                updateSubmitStatus();
             }, 1000);
         } catch(e2) {
             resultEl.innerHTML = '<span style="color:var(--red)">연결 실패. URL을 확인하고 Apps Script가 "모든 사용자"로 배포되었는지 확인해주세요.</span>';
@@ -986,8 +997,12 @@ function clearAll() {
 }
 
 // ===== QR =====
+function getQRUrl() {
+    const gasUrl = getScriptUrl();
+    return gasUrl ? DEPLOY_URL + '?gas=' + encodeURIComponent(gasUrl) : DEPLOY_URL;
+}
 function genQR() {
-    const url = DEPLOY_URL;
+    const url = getQRUrl();
     document.getElementById('qr-url-show').value = url;
     const container = document.getElementById('qr-container');
     container.innerHTML = '';
@@ -1003,7 +1018,7 @@ function downloadQR() {
     if (a.href) a.click();
 }
 function copyURL() {
-    navigator.clipboard.writeText(DEPLOY_URL).then(() => {
+    navigator.clipboard.writeText(getQRUrl()).then(() => {
         document.querySelectorAll('.qr-url-bar button').forEach(b => { const o = b.textContent; b.textContent = '복사됨!'; setTimeout(() => b.textContent = o, 1500); });
     });
 }
