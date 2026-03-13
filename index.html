@@ -69,8 +69,10 @@
         .ro label{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;border:2px solid var(--gray-200);font-size:15px;font-weight:600;color:var(--gray-400);cursor:pointer;transition:.15s;background:white;-webkit-tap-highlight-color:transparent;user-select:none}
         .ro label:active{transform:scale(.92)}
         .ro input:checked+label{background:var(--blue-600);border-color:var(--blue-600);color:white;box-shadow:0 2px 8px rgba(37,99,235,.35);transform:scale(1.05)}
-        .scale10 .rs-opts{gap:3px}
-        .scale10 .ro label{width:34px;height:34px;font-size:12px}
+        .scale10 .rs{flex-wrap:wrap;justify-content:center;gap:4px}
+        .scale10 .rs-opts{gap:6px;flex-wrap:wrap;justify-content:center}
+        .scale10 .ro label{width:36px;height:36px;font-size:13px}
+        .scale10 .rs-label{width:100%;text-align:center;min-width:unset;font-size:11px}
 
         /* radio group */
         .rg{display:flex;flex-direction:column;gap:7px}
@@ -207,13 +209,14 @@
             .nav-tab{padding:8px 18px;font-size:13px}
             .survey-header{padding:36px 32px}
             .survey-header h1{font-size:24px}
-            .scale10 .ro label{width:38px;height:38px;font-size:13px}
+            .scale10 .ro label{width:40px;height:40px;font-size:14px}
+            .scale10 .rs-opts{gap:8px}
         }
         @media(max-width:370px){
             .ro label{width:40px;height:40px;font-size:13px}
             .rs-label{display:none}
-            .scale10 .rs-opts{gap:2px}
-            .scale10 .ro label{width:28px;height:28px;font-size:10px}
+            .scale10 .rs-opts{gap:4px}
+            .scale10 .ro label{width:30px;height:30px;font-size:11px}
         }
         @media print{.nav,.dash-actions,.filter-bar,.settings-bar{display:none!important}.page{display:block!important}}
     </style>
