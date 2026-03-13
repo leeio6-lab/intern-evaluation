@@ -616,12 +616,13 @@ async function fetchFromServer() {
     const url = getScriptUrl();
     if (!url) return { ok: false, data: [], error: '서버 URL이 설정되지 않았습니다.' };
     try {
-        const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now(), { redirect: 'follow' });
+        const fetchUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        const res = await fetch(fetchUrl, { redirect: 'follow', credentials: 'omit' });
         if (!res.ok) return { ok: false, data: [], error: '서버 응답 오류 (HTTP ' + res.status + ')' };
         const data = await res.json();
         return { ok: true, data: Array.isArray(data) ? data : [], error: null };
     } catch(e) {
-        return { ok: false, data: [], error: '서버 연결 실패: ' + e.message };
+        return { ok: false, data: [], error: '서버 연결 실패 (CORS). Apps Script 배포 시 "액세스 권한"을 반드시 "모든 사용자"로 설정해주세요.' };
     }
 }
 
@@ -778,7 +779,7 @@ async function testAndSave() {
     resultEl.innerHTML = '<span style="color:var(--blue-600)">서버에 연결 중...</span>';
 
     try {
-        const res = await fetch(url + '?_t=' + Date.now(), { redirect: 'follow' });
+        const res = await fetch(url + '?_t=' + Date.now(), { redirect: 'follow', credentials: 'omit' });
         if (res.ok) {
             const data = await res.json();
             localStorage.setItem('intern_eval_script_url', url);
