@@ -506,6 +506,7 @@
 <script>
 // ===== CONFIG =====
 const DEPLOY_URL = 'https://leeio6-lab.github.io/intern-evaluation/';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1FrkQrceu9K97ebU2q1H63Am1bR_xAGfwcvHYe3_kSsUVBNsrUPU-isKJf2W79w5m/exec';
 const DEFAULT_PW = 'diacoaos1@';
 const INTERN_TOPICS = {
     '김기현': 'IFRS 1115호 본인대리인 이슈 검토 및 AI 챗봇 제작',
@@ -595,7 +596,7 @@ function cancelPW() {
     if (gas) { localStorage.setItem('intern_eval_script_url', gas); }
 })();
 
-function getScriptUrl() { return localStorage.getItem('intern_eval_script_url') || ''; }
+function getScriptUrl() { return SCRIPT_URL || localStorage.getItem('intern_eval_script_url') || ''; }
 
 // POST to Google Apps Script
 async function postToServer(data) {
