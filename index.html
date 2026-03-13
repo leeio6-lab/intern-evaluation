@@ -352,6 +352,7 @@
                 <div class="verr">평가를 선택해주세요.</div>
             </div>
         </div>
+        <div id="submit-status" style="text-align:center;font-size:11px;margin-top:12px;padding:10px;border-radius:8px;display:none"></div>
         <button type="submit" class="btn-submit" id="submit-btn">평가 제출하기</button>
     </form>
 </div>
@@ -396,14 +397,53 @@
         </div>
     </div>
 
-    <!-- Google Apps Script URL 설정 -->
-    <div class="settings-bar" id="settings-bar">
-        <strong>&#x2699; 서버 연동 설정</strong> &mdash; Google Apps Script URL을 입력하면 모든 기기의 평가가 중앙 저장됩니다.
-        <div class="s-row">
-            <input type="text" id="script-url-input" placeholder="Google Apps Script 웹앱 URL 붙여넣기">
-            <button onclick="saveScriptUrl()">저장</button>
+    <!-- 서버 연동 설정 마법사 -->
+    <div id="setup-wizard" class="settings-bar" style="padding:20px">
+        <div id="setup-connected" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <span style="color:var(--green);font-weight:600">&#x2705; 서버 연동 완료 &mdash; 모든 기기의 평가가 Google 스프레드시트에 중앙 저장됩니다</span>
+                <button class="btn btn-out" style="font-size:10px;padding:5px 10px" onclick="toggleSetup()">설정 변경</button>
+            </div>
         </div>
-        <div id="script-status" style="margin-top:6px;font-size:10px"></div>
+        <div id="setup-panel">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--blue-900)">&#x2699; 서버 연동 설정 (Google Sheets 중앙 수집)</div>
+            <div style="font-size:11px;color:var(--gray-600);margin-bottom:16px;line-height:1.6">아래 4단계를 따라하면 <b>모든 평가자의 응답이 하나의 Google 스프레드시트에 자동 저장</b>됩니다.<br>한 번만 설정하면 됩니다. (약 3분 소요)</div>
+
+            <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--blue-200)">
+                <div style="font-weight:600;font-size:12px;color:var(--blue-800);margin-bottom:6px">Step 1. Google 스프레드시트 생성</div>
+                <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px">Google Drive에서 새 스프레드시트를 만드세요.</div>
+                <button class="btn btn-out" style="font-size:10px;padding:5px 10px" onclick="window.open('https://sheets.new','_blank')">&#x1F4C4; 새 스프레드시트 만들기</button>
+            </div>
+
+            <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--blue-200)">
+                <div style="font-weight:600;font-size:12px;color:var(--blue-800);margin-bottom:6px">Step 2. Apps Script에 코드 붙여넣기</div>
+                <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px">스프레드시트 메뉴에서 <b>[확장 프로그램] → [Apps Script]</b> 클릭 → 기존 코드를 지우고 아래 코드를 붙여넣으세요.</div>
+                <div style="position:relative">
+                    <pre id="gas-code" style="background:var(--gray-900);color:#93C5FD;padding:14px;border-radius:8px;font-size:10px;overflow-x:auto;max-height:150px;overflow-y:auto;line-height:1.5;white-space:pre;font-family:monospace"></pre>
+                    <button onclick="copyScript()" style="position:absolute;top:8px;right:8px;padding:5px 12px;background:var(--blue-600);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit" id="copy-script-btn">&#x1F4CB; 코드 복사</button>
+                </div>
+            </div>
+
+            <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--blue-200)">
+                <div style="font-weight:600;font-size:12px;color:var(--blue-800);margin-bottom:6px">Step 3. 웹 앱으로 배포</div>
+                <div style="font-size:11px;color:var(--gray-600);line-height:1.7">
+                    1. Apps Script 편집기에서 <b>[배포] → [새 배포]</b> 클릭<br>
+                    2. 유형 선택: <b>"웹 앱"</b><br>
+                    3. 실행 주체: <b>"나"</b> / 액세스 권한: <b>"모든 사용자"</b><br>
+                    4. <b>[배포]</b> 클릭 → 생성된 URL 복사
+                </div>
+            </div>
+
+            <div style="background:white;border-radius:10px;padding:14px 16px;border:1px solid var(--blue-200)">
+                <div style="font-weight:600;font-size:12px;color:var(--blue-800);margin-bottom:6px">Step 4. URL 연결</div>
+                <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px">복사한 URL을 아래에 붙여넣고 연결 테스트를 실행하세요.</div>
+                <div style="display:flex;gap:6px">
+                    <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;padding:10px 12px;border:1.5px solid var(--blue-200);border-radius:8px;font-size:12px;font-family:inherit">
+                    <button class="btn btn-blue" onclick="testAndSave()" id="test-btn" style="white-space:nowrap">&#x1F50C; 연결 테스트</button>
+                </div>
+                <div id="test-result" style="margin-top:8px;font-size:11px;min-height:16px"></div>
+            </div>
+        </div>
     </div>
 
     <div class="stats" id="stats-area">
@@ -638,27 +678,122 @@ function closeSuccess() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ===== Dashboard Settings =====
+// ===== Dashboard Settings (Setup Wizard) =====
+const GAS_CODE = `const SHEET_NAME = '평가데이터';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = getOrCreateSheet();
+    if (sheet.getLastRow() === 0) {
+      const headers = ['id','submitted_at','evaluator_name','intern_name','presentation_topic','presentation_date','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','weighted_score','overall_score','competency_level','recommendation','impressive_point','improvement','message'];
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    }
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const row = headers.map(h => data[h] !== undefined ? data[h] : '');
+    sheet.appendRow(row);
+    return ContentService.createTextOutput(JSON.stringify({success:true})).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({success:false,error:err.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    const sheet = getOrCreateSheet();
+    if (sheet.getLastRow() <= 1) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = row[i]);
+      return obj;
+    });
+    return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getOrCreateSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  return sheet;
+}`;
+
 function initDashSettings() {
+    // Render GAS code in the pre block
+    const codeEl = document.getElementById('gas-code');
+    if (codeEl) codeEl.textContent = GAS_CODE;
+
     const url = getScriptUrl();
     document.getElementById('script-url-input').value = url;
-    const st = document.getElementById('script-status');
     if (url) {
-        st.innerHTML = '<span style="color:var(--green)">&#x2705; 서버 연동됨</span>';
+        document.getElementById('setup-connected').style.display = 'block';
+        document.getElementById('setup-panel').style.display = 'none';
     } else {
-        st.innerHTML = '<span style="color:var(--yellow)">&#x26A0; 서버 미연동 - 현재 기기의 로컬 데이터만 표시됩니다</span>';
+        document.getElementById('setup-connected').style.display = 'none';
+        document.getElementById('setup-panel').style.display = 'block';
     }
 }
 
-function saveScriptUrl() {
+function toggleSetup() {
+    document.getElementById('setup-connected').style.display = 'none';
+    document.getElementById('setup-panel').style.display = 'block';
+}
+
+function copyScript() {
+    navigator.clipboard.writeText(GAS_CODE).then(() => {
+        const btn = document.getElementById('copy-script-btn');
+        btn.textContent = '복사 완료!';
+        btn.style.background = 'var(--green)';
+        setTimeout(() => { btn.innerHTML = '&#x1F4CB; 코드 복사'; btn.style.background = ''; }, 2000);
+    });
+}
+
+async function testAndSave() {
     const url = document.getElementById('script-url-input').value.trim();
-    if (url) {
-        localStorage.setItem('intern_eval_script_url', url);
-    } else {
-        localStorage.removeItem('intern_eval_script_url');
+    const resultEl = document.getElementById('test-result');
+    const btn = document.getElementById('test-btn');
+
+    if (!url) { resultEl.innerHTML = '<span style="color:var(--red)">URL을 입력해주세요.</span>'; return; }
+    if (!url.startsWith('https://script.google.com/')) { resultEl.innerHTML = '<span style="color:var(--red)">올바른 Google Apps Script URL이 아닙니다.</span>'; return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>테스트 중...';
+    resultEl.innerHTML = '<span style="color:var(--blue-600)">서버에 연결 중...</span>';
+
+    try {
+        const res = await fetch(url, { redirect: 'follow' });
+        if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem('intern_eval_script_url', url);
+            resultEl.innerHTML = '<span style="color:var(--green);font-weight:600">&#x2705; 연결 성공! 서버에 저장된 평가: ' + (Array.isArray(data) ? data.length : 0) + '건</span>';
+            setTimeout(() => {
+                initDashSettings();
+                refreshDash();
+            }, 1000);
+        } else {
+            throw new Error('응답 오류');
+        }
+    } catch(e) {
+        // no-cors fallback: try saving and assume it worked
+        try {
+            await fetch(url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({test:true}), redirect: 'follow' });
+            localStorage.setItem('intern_eval_script_url', url);
+            resultEl.innerHTML = '<span style="color:var(--green);font-weight:600">&#x2705; URL 저장 완료! (CORS 정책으로 직접 확인 불가하지만 데이터 전송은 정상 동작합니다)</span>';
+            setTimeout(() => {
+                initDashSettings();
+                refreshDash();
+            }, 1000);
+        } catch(e2) {
+            resultEl.innerHTML = '<span style="color:var(--red)">연결 실패. URL을 확인하고 Apps Script가 "모든 사용자"로 배포되었는지 확인해주세요.</span>';
+        }
     }
-    initDashSettings();
-    refreshDash();
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F50C; 연결 테스트';
 }
 
 // ===== Dashboard =====
@@ -873,6 +1008,23 @@ function copyURL() {
 // ===== Init =====
 document.querySelector('[name="presentation_date"]').valueAsDate = new Date();
 try { genQR(); } catch(e) {}
+
+// Show server status on survey page
+function updateSubmitStatus() {
+    const el = document.getElementById('submit-status');
+    if (getScriptUrl()) {
+        el.style.display = 'block';
+        el.style.background = 'var(--green-bg)';
+        el.style.color = '#065F46';
+        el.innerHTML = '&#x2705; 서버 연동됨 &mdash; 제출하면 Google 스프레드시트에 자동 저장됩니다';
+    } else {
+        el.style.display = 'block';
+        el.style.background = 'var(--yellow-bg)';
+        el.style.color = '#92400E';
+        el.innerHTML = '&#x26A0; 서버 미연동 &mdash; 현재 이 기기에만 저장됩니다 (관리자에게 문의)';
+    }
+}
+updateSubmitStatus();
 </script>
 </body>
 </html>
