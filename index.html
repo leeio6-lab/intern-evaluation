@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>인턴 발표 평가 시스템</title>
+    <title>회계1팀 인턴 발표 평가</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -225,7 +225,7 @@
 
 <nav class="nav">
     <div class="nav-inner">
-        <div class="nav-logo">&#x1F393; 인턴 발표 평가</div>
+        <div class="nav-logo">&#x1F393; 회계1팀 인턴 발표 평가</div>
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showPage('survey')">평가</button>
             <button class="nav-tab" onclick="showPage('dashboard')">대시보드</button>
@@ -238,7 +238,7 @@
 <div id="page-survey" class="page active">
 <div class="survey-wrap">
     <div class="survey-header">
-        <h1>&#x1F393; 인턴 발표 평가 설문지</h1>
+        <h1>&#x1F393; 회계1팀 인턴 발표 평가</h1>
         <p>인턴분들의 과제 발표에 대한 평가를 부탁드립니다.<br>솔직하고 건설적인 피드백이 인턴의 성장에 큰 도움이 됩니다.</p>
         <div class="badge-bar">
             <strong>&#x1F4CC; 평가 기준 (5점 척도)</strong><br>
@@ -333,7 +333,7 @@
         <div class="card">
             <div class="card-title">&#x2B50; Section 8. 종합 평가</div>
             <div class="card-sub">전체적인 평가를 종합해주세요.</div>
-            <div class="rq" data-field="overall_score"><div class="rq-text">종합 점수 (전반적인 인턴 발표 역량 평가)<span class="req">*</span></div><div class="rs scale10"><span class="rs-label">1점<br>(매우 미흡)</span><div class="rs-opts" id="overall-opts"></div><span class="rs-label">10점<br>(매우 우수)</span></div><div class="verr">평가를 선택해주세요.</div></div>
+            <div class="rq" data-field="overall_score"><div class="rq-text">종합 점수 (전반적인 인턴 발표 역량 평가)<span class="req">*</span></div><div style="font-size:11px;color:var(--gray-400);margin-bottom:6px;text-align:center">1 = 매우 미흡 &larr;&rarr; 10 = 매우 우수</div><div class="rs scale10"><span class="rs-label">1점<br>(매우 미흡)</span><div class="rs-opts" id="overall-opts"></div><span class="rs-label">10점<br>(매우 우수)</span></div><div class="verr">평가를 선택해주세요.</div></div>
             <div class="fg" data-field="competency_level">
                 <label class="fl">이 인턴의 전반적인 역량 수준은?<span class="req">*</span></label>
                 <div class="rg">
@@ -627,9 +627,19 @@ async function fetchFromServer() {
     try {
         const res = await fetch(url, { redirect: 'follow' });
         if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) return data;
-        return getLocal();
+        const serverData = await res.json();
+        // 서버 데이터 + 로컬 전용 데이터 병합 (id 기준 중복 제거)
+        const localData = getLocal();
+        if (Array.isArray(serverData)) {
+            const serverIds = new Set(serverData.map(r => String(r.id)));
+            const localOnly = localData.filter(r => !serverIds.has(String(r.id)));
+            // 로컬에만 있는 데이터를 서버에 업로드
+            for (const item of localOnly) {
+                try { await fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(item), redirect:'follow' }); } catch(e) {}
+            }
+            if (serverData.length > 0) return [...serverData, ...localOnly];
+        }
+        return localData;
     } catch(e) {
         return getLocal();
     }
