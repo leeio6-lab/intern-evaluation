@@ -252,8 +252,9 @@
             <div class="card-title">&#x1F4CC; Section 1. 기본 정보</div>
             <div class="card-sub">평가자 및 평가 대상 인턴 정보를 입력해주세요.</div>
             <div class="fg">
-                <label class="fl">평가자 이름 (익명 원하시면 미입력)</label>
-                <input type="text" class="fi" name="evaluator_name" placeholder="이름을 입력해주세요">
+                <label class="fl">평가자 이름<span class="req">*</span></label>
+                <input type="text" class="fi" name="evaluator_name" placeholder="이름을 입력해주세요" required>
+                <div class="verr">이름을 입력해주세요.</div>
             </div>
             <div class="fg">
                 <label class="fl">평가 대상 인턴 이름<span class="req">*</span></label>
@@ -679,7 +680,7 @@ async function fetchFromServer() {
 function validate() {
     let ok = true;
     document.querySelectorAll('.has-error').forEach(el => el.classList.remove('has-error'));
-    ['intern_name','presentation_round','presentation_topic','presentation_date'].forEach(n => {
+    ['evaluator_name','intern_name','presentation_round','presentation_topic','presentation_date'].forEach(n => {
         const inp = document.querySelector(`[name="${n}"]`);
         if (n === 'presentation_round' && document.getElementById('round-fg').style.display === 'none') return;
         if (!inp.value.trim()) { inp.closest('.fg').classList.add('has-error'); ok = false; }
@@ -745,16 +746,13 @@ function closeSuccess() {
 
 // ===== Dashboard Settings (Setup Wizard) =====
 const GAS_CODE = `const SHEET_NAME = '평가데이터';
+const ALL_HEADERS = ['id','submitted_at','evaluator_name','intern_name','presentation_round','presentation_topic','presentation_date','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','weighted_score','overall_score','competency_level','recommendation','impressive_point','improvement','message'];
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const sheet = getOrCreateSheet();
-    if (sheet.getLastRow() === 0) {
-      const headers = ['id','submitted_at','evaluator_name','intern_name','presentation_round','presentation_topic','presentation_date','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','weighted_score','overall_score','competency_level','recommendation','impressive_point','improvement','message'];
-      sheet.appendRow(headers);
-      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    }
+    ensureHeaders(sheet);
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const row = headers.map(h => data[h] !== undefined ? data[h] : '');
     sheet.appendRow(row);
@@ -778,6 +776,22 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function ensureHeaders(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(ALL_HEADERS);
+    sheet.getRange(1, 1, 1, ALL_HEADERS.length).setFontWeight('bold');
+    return;
+  }
+  const existing = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const missing = ALL_HEADERS.filter(h => existing.indexOf(h) === -1);
+  if (missing.length > 0) {
+    const startCol = existing.length + 1;
+    missing.forEach((h, i) => {
+      sheet.getRange(1, startCol + i).setValue(h).setFontWeight('bold');
+    });
   }
 }
 
@@ -880,8 +894,10 @@ let cachedData = [];
 function renderDash() { renderDashWithData(cachedData); }
 
 function renderDashWithData(allData) {
-    // 기존 데이터에 회차 정보가 없으면 1차로 설정
-    allData.forEach(r => { if (!r.presentation_round) r.presentation_round = '1차'; });
+    // 주제명 → 회차 매핑 (Google Sheets에 회차 컬럼 없어도 자동 추론)
+    const topicRound = {};
+    Object.values(INTERN_DATA).forEach(arr => arr.forEach(d => { topicRound[d.topic] = d.round; }));
+    allData.forEach(r => { if (!r.presentation_round) r.presentation_round = topicRound[r.presentation_topic] || '1차'; });
     cachedData = allData;
     let data = [...allData];
     const fi = document.getElementById('f-intern').value;
