@@ -264,6 +264,13 @@
                 </select>
                 <div class="verr">인턴을 선택해주세요.</div>
             </div>
+            <div class="fg" id="round-fg" style="display:none">
+                <label class="fl">발표 회차<span class="req">*</span></label>
+                <select class="fi" name="presentation_round" id="round-field" required onchange="onRoundChange(this)">
+                    <option value="" disabled selected>회차를 선택해주세요</option>
+                </select>
+                <div class="verr">회차를 선택해주세요.</div>
+            </div>
             <div class="fg">
                 <label class="fl">과제 주제 / 발표 제목<span class="req">*</span></label>
                 <input type="text" class="fi" name="presentation_topic" id="topic-field" readonly placeholder="인턴을 선택하면 자동 입력됩니다" required>
@@ -459,6 +466,8 @@
     <div class="filter-bar">
         <label>인턴:</label>
         <select id="f-intern" onchange="renderDash()"><option value="">전체</option></select>
+        <label>회차:</label>
+        <select id="f-round" onchange="renderDash()"><option value="">전체</option></select>
         <label>기간:</label>
         <input type="date" id="f-from" onchange="renderDash()">
         <span style="color:var(--gray-400)">~</span>
@@ -508,9 +517,14 @@
 const DEPLOY_URL = 'https://leeio6-lab.github.io/intern-evaluation/';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1FrkQrceu9K97ebU2q1H63Am1bR_xAGfwcvHYe3_kSsUVBNsrUPU-isKJf2W79w5m/exec';
 const DEFAULT_PW = '1q2w3e4r';
-const INTERN_TOPICS = {
-    '김기현': 'IFRS 1115호 본인대리인 이슈 검토 및 AI 챗봇 제작',
-    '임상민': 'IFRS 18 도입 영향과 실무 대응 방안'
+const INTERN_DATA = {
+    '김기현': [
+        { round: '1차', topic: 'IFRS 1115호 본인대리인 이슈 검토 및 AI 챗봇 제작' }
+    ],
+    '임상민': [
+        { round: '1차', topic: 'IFRS 18 도입 영향과 실무 대응 방안' },
+        { round: '2차', topic: '대웅 그룹 해외법인에 미치는 영향 분석 및 인도네시아·중국·태국 법인 2025년도 손익계산서 실증 분석' }
+    ]
 };
 
 // ===== Init rating options =====
@@ -524,10 +538,44 @@ function makeOpts(id, name, max) {
 for (let i = 1; i <= 14; i++) makeOpts(`q${i}-opts`, `q${i}`, 5);
 makeOpts('overall-opts', 'overall_score', 10);
 
-// ===== Intern → Topic auto-fill =====
+// ===== Intern → Round/Topic auto-fill =====
 function onInternChange(sel) {
-    const topic = INTERN_TOPICS[sel.value] || '';
-    document.getElementById('topic-field').value = topic;
+    const data = INTERN_DATA[sel.value];
+    const roundFg = document.getElementById('round-fg');
+    const roundSel = document.getElementById('round-field');
+    const topicField = document.getElementById('topic-field');
+
+    if (!data) {
+        roundFg.style.display = 'none';
+        roundSel.innerHTML = '<option value="" disabled selected>회차를 선택해주세요</option>';
+        topicField.value = '';
+        return;
+    }
+
+    roundSel.innerHTML = '<option value="" disabled selected>회차를 선택해주세요</option>';
+    data.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.round;
+        opt.textContent = d.round + ' 발표';
+        roundSel.appendChild(opt);
+    });
+
+    if (data.length === 1) {
+        roundSel.value = data[0].round;
+        topicField.value = data[0].topic;
+        roundFg.style.display = 'none';
+    } else {
+        roundFg.style.display = '';
+        topicField.value = '';
+    }
+}
+
+function onRoundChange(sel) {
+    const internSel = document.querySelector('[name="intern_name"]');
+    const data = INTERN_DATA[internSel.value];
+    if (!data) return;
+    const found = data.find(d => d.round === sel.value);
+    document.getElementById('topic-field').value = found ? found.topic : '';
 }
 
 // ===== Page Nav =====
@@ -631,8 +679,9 @@ async function fetchFromServer() {
 function validate() {
     let ok = true;
     document.querySelectorAll('.has-error').forEach(el => el.classList.remove('has-error'));
-    ['intern_name','presentation_topic','presentation_date'].forEach(n => {
+    ['intern_name','presentation_round','presentation_topic','presentation_date'].forEach(n => {
         const inp = document.querySelector(`[name="${n}"]`);
+        if (n === 'presentation_round' && document.getElementById('round-fg').style.display === 'none') return;
         if (!inp.value.trim()) { inp.closest('.fg').classList.add('has-error'); ok = false; }
     });
     for (let i = 1; i <= 14; i++) {
@@ -689,6 +738,8 @@ function closeSuccess() {
     document.getElementById('overlay-success').classList.remove('show');
     document.getElementById('eval-form').reset();
     document.getElementById('topic-field').value = '';
+    document.getElementById('round-fg').style.display = 'none';
+    document.getElementById('round-field').innerHTML = '<option value="" disabled selected>회차를 선택해주세요</option>';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -700,7 +751,7 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     const sheet = getOrCreateSheet();
     if (sheet.getLastRow() === 0) {
-      const headers = ['id','submitted_at','evaluator_name','intern_name','presentation_topic','presentation_date','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','weighted_score','overall_score','competency_level','recommendation','impressive_point','improvement','message'];
+      const headers = ['id','submitted_at','evaluator_name','intern_name','presentation_round','presentation_topic','presentation_date','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','weighted_score','overall_score','competency_level','recommendation','impressive_point','improvement','message'];
       sheet.appendRow(headers);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
@@ -829,12 +880,16 @@ let cachedData = [];
 function renderDash() { renderDashWithData(cachedData); }
 
 function renderDashWithData(allData) {
+    // 기존 데이터에 회차 정보가 없으면 1차로 설정
+    allData.forEach(r => { if (!r.presentation_round) r.presentation_round = '1차'; });
     cachedData = allData;
     let data = [...allData];
     const fi = document.getElementById('f-intern').value;
+    const fr = document.getElementById('f-round').value;
     const ff = document.getElementById('f-from').value;
     const ft = document.getElementById('f-to').value;
     if (fi) data = data.filter(r => r.intern_name === fi);
+    if (fr) data = data.filter(r => r.presentation_round === fr);
     if (ff) data = data.filter(r => r.presentation_date >= ff);
     if (ft) data = data.filter(r => r.presentation_date <= ft);
 
@@ -842,6 +897,11 @@ function renderDashWithData(allData) {
     const sel = document.getElementById('f-intern');
     const cv = sel.value;
     sel.innerHTML = '<option value="">전체</option>' + names.map(n => `<option value="${n}" ${n===cv?'selected':''}>${n}</option>`).join('');
+
+    const rounds = [...new Set(allData.map(r => r.presentation_round))].sort();
+    const rsel = document.getElementById('f-round');
+    const rcv = rsel.value;
+    rsel.innerHTML = '<option value="">전체</option>' + rounds.map(r => `<option value="${r}" ${r===rcv?'selected':''}>${r}</option>`).join('');
 
     document.getElementById('s-total').textContent = data.length;
     document.getElementById('s-interns').textContent = [...new Set(data.map(r => r.intern_name))].length;
@@ -883,12 +943,14 @@ function drawCharts(data) {
         options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,max:5,ticks:{stepSize:1,font:{size:10}},pointLabels:{font:{size:10}}}},plugins:{legend:{display:false}}}
     });
 
-    const iNames = [...new Set(data.map(r => r.intern_name))];
-    const iAvgs = iNames.map(n => { const rs = data.filter(r => r.intern_name === n); return +(rs.reduce((s,r)=>s+parseFloat(r.weighted_score||0),0)/rs.length).toFixed(1); });
+    const iGroups = []; const iSeen = new Set();
+    data.forEach(r => { const k = r.intern_name+'|'+(r.presentation_round||'1차'); if(!iSeen.has(k)){iSeen.add(k);iGroups.push({name:r.intern_name,round:r.presentation_round||'1차'});}});
+    const iLabels = iGroups.map(g => g.name + ' (' + g.round + ')');
+    const iAvgs = iGroups.map(g => { const rs = data.filter(r => r.intern_name === g.name && (r.presentation_round||'1차') === g.round); return +(rs.reduce((s,r)=>s+parseFloat(r.weighted_score||0),0)/rs.length).toFixed(1); });
     kill('ch-bar');
     CX['ch-bar'] = new Chart(document.getElementById('ch-bar'), {
         type:'bar',
-        data:{labels:iNames,datasets:[{label:'가중 평균',data:iAvgs,backgroundColor:iAvgs.map(v=>v>=80?'#10B981':v>=60?'#F59E0B':'#EF4444'),borderRadius:8,barThickness:36}]},
+        data:{labels:iLabels,datasets:[{label:'가중 평균',data:iAvgs,backgroundColor:iAvgs.map(v=>v>=80?'#10B981':v>=60?'#F59E0B':'#EF4444'),borderRadius:8,barThickness:36}]},
         options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,max:100},x:{grid:{display:false}}},plugins:{legend:{display:false}}}
     });
 
@@ -911,17 +973,24 @@ function drawCharts(data) {
 
 function drawReports(data) {
     const el = document.getElementById('reports-area');
-    const names = [...new Set(data.map(r => r.intern_name))];
+    // 인턴+회차별 그룹핑
+    const groups = [];
+    const seen = new Set();
+    data.forEach(r => {
+        const key = r.intern_name + '|' + (r.presentation_round || '1차');
+        if (!seen.has(key)) { seen.add(key); groups.push({ name: r.intern_name, round: r.presentation_round || '1차' }); }
+    });
     const cats = [{n:'과제 내용/완성도',q:[1,2,3,4],w:35},{n:'발표력/커뮤니케이션',q:[5,6,7,8],w:25},{n:'Q&A 응답 능력',q:[9,10],w:20},{n:'창의성/주도성',q:[11,12],w:15},{n:'태도/협업',q:[13,14],w:5}];
     const bc = (s,m) => { const p=s/m; return p>=.8?'var(--green)':p>=.6?'var(--yellow)':'var(--red)'; };
     const esc = s => { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
 
-    el.innerHTML = names.map(name => {
-        const rs = data.filter(r => r.intern_name === name);
+    el.innerHTML = groups.map(g => {
+        const rs = data.filter(r => r.intern_name === g.name && (r.presentation_round || '1차') === g.round);
         const aw = (rs.reduce((s,r)=>s+parseFloat(r.weighted_score||0),0)/rs.length).toFixed(1);
         const ao = (rs.reduce((s,r)=>s+parseInt(r.overall_score||0),0)/rs.length).toFixed(1);
         const cs = cats.map(c => { const a = rs.reduce((s,r)=>s+c.q.reduce((x,q)=>x+parseInt(r['q'+q]||0),0)/c.q.length,0)/rs.length; return {...c,avg:+a.toFixed(2)}; });
-        return `<div class="rpt"><div class="rpt-head"><div><div class="rpt-name">${esc(name)}</div><div class="rpt-meta">평가 ${rs.length}건 | 최근: ${rs[rs.length-1].presentation_date}</div></div><span class="badge ${parseFloat(aw)>=80?'b-hi':parseFloat(aw)>=60?'b-md':'b-lo'}" style="font-size:13px;padding:6px 12px">가중: ${aw}</span></div>
+        const label = g.name + ' (' + g.round + ' 발표)';
+        return `<div class="rpt"><div class="rpt-head"><div><div class="rpt-name">${esc(label)}</div><div class="rpt-meta">평가 ${rs.length}건 | 최근: ${rs[rs.length-1].presentation_date}</div></div><span class="badge ${parseFloat(aw)>=80?'b-hi':parseFloat(aw)>=60?'b-md':'b-lo'}" style="font-size:13px;padding:6px 12px">가중: ${aw}</span></div>
         <div class="rpt-scores">${cs.map(c=>`<div class="rpt-si"><div class="cat">${c.n}</div><div class="val">${c.avg.toFixed(1)}</div><div class="mx">/ 5.0 (${c.w}%)</div></div>`).join('')}<div class="rpt-si"><div class="cat">종합</div><div class="val">${ao}</div><div class="mx">/ 10.0</div></div></div>
         ${cs.map(c=>`<div class="pb"><div class="pb-l"><span>${c.n}</span><span>${c.avg.toFixed(1)}/5</span></div><div class="pb-t"><div class="pb-f" style="width:${c.avg/5*100}%;background:${bc(c.avg,5)}"></div></div></div>`).join('')}
         ${rs.some(r=>r.impressive_point||r.improvement||r.message)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100)"><h4 style="font-size:12px;margin-bottom:8px;color:var(--gray-600)">주관식 피드백</h4>${rs.filter(r=>r.impressive_point).map(r=>`<div class="fb-item" style="background:var(--green-bg)"><b>인상 깊은 점:</b> ${esc(r.impressive_point)}</div>`).join('')}${rs.filter(r=>r.improvement).map(r=>`<div class="fb-item" style="background:var(--yellow-bg)"><b>개선 필요:</b> ${esc(r.improvement)}</div>`).join('')}${rs.filter(r=>r.message).map(r=>`<div class="fb-item" style="background:var(--blue-50)"><b>한마디:</b> ${esc(r.message)}</div>`).join('')}</div>`:''}</div>`;
@@ -930,10 +999,10 @@ function drawReports(data) {
 
 function drawTable(data) {
     const esc = s => { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-    let h = `<table class="rt"><thead><tr><th>#</th><th>인턴</th><th>평가자</th><th>발표일</th><th>가중</th><th>종합</th><th>추천</th><th></th></tr></thead><tbody>`;
+    let h = `<table class="rt"><thead><tr><th>#</th><th>인턴</th><th>회차</th><th>평가자</th><th>발표일</th><th>가중</th><th>종합</th><th>추천</th><th></th></tr></thead><tbody>`;
     data.forEach((r,i) => {
         const w = parseFloat(r.weighted_score||0);
-        h += `<tr><td>${i+1}</td><td><b>${esc(r.intern_name)}</b></td><td>${esc(r.evaluator_name||'익명')}</td><td>${r.presentation_date}</td><td><span class="badge ${w>=80?'b-hi':w>=60?'b-md':'b-lo'}">${w}</span></td><td>${r.overall_score}/10</td><td>${esc(r.recommendation)}</td><td><button class="btn btn-out" style="padding:3px 7px;font-size:9px" onclick="showDet(${r.id})">보기</button></td></tr>`;
+        h += `<tr><td>${i+1}</td><td><b>${esc(r.intern_name)}</b></td><td>${esc(r.presentation_round||'1차')}</td><td>${esc(r.evaluator_name||'익명')}</td><td>${r.presentation_date}</td><td><span class="badge ${w>=80?'b-hi':w>=60?'b-md':'b-lo'}">${w}</span></td><td>${r.overall_score}/10</td><td>${esc(r.recommendation)}</td><td><button class="btn btn-out" style="padding:3px 7px;font-size:9px" onclick="showDet(${r.id})">보기</button></td></tr>`;
     });
     document.getElementById('tbl-body').innerHTML = h + '</tbody></table>';
 }
@@ -944,8 +1013,8 @@ function showDet(id) {
     if (!r) return;
     const esc = s => { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
     const ql = ['1. 목적/목표 달성','2. 결과물 완성도','3. 접근 방식','4. 근거 기반','5. 전달력','6. 자료 구성','7. 시간 활용','8. 자신감','9. 답변 논리성','10. 솔직한 대응','11. 창의성','12. 주도성','13. 협업 참여','14. 피드백 수용'];
-    let h = `<button class="det-close" onclick="closeDet()">&times;</button><h2>${esc(r.intern_name)} 상세 평가</h2>
-    <div class="rpt-meta" style="margin-bottom:12px">평가자: ${esc(r.evaluator_name||'익명')} | ${r.presentation_date} | ${esc(r.presentation_topic)}</div>
+    let h = `<button class="det-close" onclick="closeDet()">&times;</button><h2>${esc(r.intern_name)} (${esc(r.presentation_round||'1차')}) 상세 평가</h2>
+    <div class="rpt-meta" style="margin-bottom:12px">평가자: ${esc(r.evaluator_name||'익명')} | ${esc(r.presentation_round||'1차')} 발표 | ${r.presentation_date} | ${esc(r.presentation_topic)}</div>
     ${ql.map((l,i)=>{const s=parseInt(r['q'+(i+1)]);const p=s/5*100;return `<div class="pb"><div class="pb-l"><span>${l}</span><span>${s}/5</span></div><div class="pb-t"><div class="pb-f" style="width:${p}%;background:${p>=80?'var(--green)':p>=60?'var(--yellow)':'var(--red)'}"></div></div></div>`;}).join('')}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0">
         <div class="rpt-si"><div class="cat">가중 점수</div><div class="val">${r.weighted_score}</div></div>
@@ -965,10 +1034,10 @@ document.getElementById('overlay-detail').addEventListener('click', function(e){
 function exportExcel() {
     const data = cachedData;
     if (!data.length) return alert('데이터가 없습니다.');
-    const hd = ['번호','제출일시','평가자','인턴','발표주제','발표일','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','가중점수','종합점수','역량수준','추천여부','인상깊은점','개선필요','한마디'];
-    const rows = data.map((r,i)=>[i+1,r.submitted_at?new Date(r.submitted_at).toLocaleString('ko-KR'):'',r.evaluator_name||'익명',r.intern_name,r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
+    const hd = ['번호','제출일시','평가자','인턴','회차','발표주제','발표일','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','가중점수','종합점수','역량수준','추천여부','인상깊은점','개선필요','한마디'];
+    const rows = data.map((r,i)=>[i+1,r.submitted_at?new Date(r.submitted_at).toLocaleString('ko-KR'):'',r.evaluator_name||'익명',r.intern_name,r.presentation_round||'1차',r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
     const ws = XLSX.utils.aoa_to_sheet([hd,...rows]);
-    ws['!cols'] = hd.map((_,i)=>({wch:i>=24?28:14}));
+    ws['!cols'] = hd.map((_,i)=>({wch:i>=25?28:14}));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '전체응답');
     XLSX.writeFile(wb, `인턴평가_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -978,8 +1047,8 @@ function exportDetailExcel() {
     const data = cachedData;
     if (!data.length) return alert('데이터가 없습니다.');
     const wb = XLSX.utils.book_new();
-    const hd = ['번호','제출일시','평가자','인턴','발표주제','발표일','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','가중점수','종합점수','역량수준','추천여부','인상깊은점','개선필요','한마디'];
-    const rows = data.map((r,i)=>[i+1,r.submitted_at?new Date(r.submitted_at).toLocaleString('ko-KR'):'',r.evaluator_name||'익명',r.intern_name,r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
+    const hd = ['번호','제출일시','평가자','인턴','회차','발표주제','발표일','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','가중점수','종합점수','역량수준','추천여부','인상깊은점','개선필요','한마디'];
+    const rows = data.map((r,i)=>[i+1,r.submitted_at?new Date(r.submitted_at).toLocaleString('ko-KR'):'',r.evaluator_name||'익명',r.intern_name,r.presentation_round||'1차',r.presentation_topic,r.presentation_date,...Array.from({length:14},(_,j)=>parseInt(r['q'+(j+1)])),parseFloat(r.weighted_score),parseInt(r.overall_score),r.competency_level,r.recommendation,r.impressive_point||'',r.improvement||'',r.message||'']);
     const ws1 = XLSX.utils.aoa_to_sheet([hd,...rows]); ws1['!cols'] = hd.map(()=>({wch:15}));
     XLSX.utils.book_append_sheet(wb, ws1, '전체응답');
     const names = [...new Set(data.map(r=>r.intern_name))];
