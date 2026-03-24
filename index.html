@@ -1103,6 +1103,14 @@ document.addEventListener('keydown', function(e) {
 
 // ===== Init =====
 document.querySelector('[name="presentation_date"]').valueAsDate = new Date();
+// 기본 선택: 임상민 2차
+(function() {
+    const sel = document.querySelector('[name="intern_name"]');
+    sel.value = '임상민';
+    onInternChange(sel);
+    document.getElementById('round-field').value = '2차';
+    onRoundChange(document.getElementById('round-field'));
+})();
 try { genQR(); } catch(e) {}
 
 // Show server status on survey page
